@@ -1,0 +1,9 @@
+scrapy
+redis
+supabase
+python-dotenv
+prometheus_client
+pyyaml
+psycopg2-binary
+croniter
+aiohttp

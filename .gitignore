@@ -1,0 +1,38 @@
+# General
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+# JetBrains
+.idea/
+.idea
+*.iws
+*.iml
+*.ipr
+
+.vscode/
+*.swp
+
+# Environment
+.env
+.venv/
+venv/
+env/
+*.env
+
+# Scrapy
+.scrapy/
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# Database / Data
+*.sqlite3
+*.db
+postgres_data/
+pgadmin_data/
+
+# OS
+.DS_Store
