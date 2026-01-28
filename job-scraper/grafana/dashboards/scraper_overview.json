@@ -1,0 +1,41 @@
+{
+    "title": "Main Scraper Dashboard",
+    "panels": [
+        {
+            "id": 1,
+            "title": "Items Scraped (Rate)",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(scrapy_items_scraped_total[5m])",
+                    "legendFormat": "{{spider}} - {{source}}"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "title": "Error Rate",
+            "type": "graph",
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "rate(scrapy_errors_total[5m])",
+                    "legendFormat": "{{spider}} - {{error_type}}"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Active Spiders",
+            "type": "stat",
+            "datasource": "Prometheus",
+            "targets": [
+                {
+                    "expr": "sum(scrapy_spider_status)",
+                    "legendFormat": ""
+                }
+            ]
+        }
+    ]
+}

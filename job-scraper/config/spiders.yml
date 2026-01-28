@@ -1,0 +1,52 @@
+linkedin:
+  enabled: true
+  schedule: "0 */4 * * *"  # Every 4 hours
+  search_queries:
+    - "software engineer"
+    - "data scientist"
+    - "product manager"
+  locations:
+    - "United States"
+    - "Remote"
+  max_pages: 5
+  rate_limit: 2  # requests per second
+  use_crawl4ai: true
+  scrape_detail_pages: true
+  detail_use_crawl4ai: true
+  wait_for_selector: "css:.jobs-search__results-list"
+  detail_wait_for_selector: "css:.description__text"
+  job_card_selector: ".base-card"
+
+indeed:
+  enabled: true
+  schedule: "0 */6 * * *"  # Every 6 hours
+  search_queries:
+    - "python developer"
+    - "frontend engineer"
+    - "devops engineer"
+  locations:
+    - "New York, NY"
+    - "San Francisco, CA"
+    - "Remote"
+  max_pages: 10
+  rate_limit: 5
+  use_crawl4ai: false  # Indeed works well without JS
+  scrape_detail_pages: false  # Get data from search page
+  job_card_selector: ".job_seen_beacon"
+
+glassdoor:
+  enabled: true
+  schedule: "0 */8 * * *"  # Every 8 hours
+  search_queries:
+    - "machine learning engineer"
+    - "backend developer"
+  locations:
+    - "Seattle, WA"
+    - "Austin, TX"
+  max_pages: 3
+  rate_limit: 1
+  use_crawl4ai: true
+  scrape_detail_pages: true
+  detail_use_crawl4ai: true
+  wait_for_selector: "css:.JobsList_jobsList__lqjTr"
+  job_card_selector: ".react-job-listing"

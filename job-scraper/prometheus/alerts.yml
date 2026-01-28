@@ -1,0 +1,18 @@
+groups:
+  - name: scraper_alerts
+    rules:
+      - alert: ScraperDown
+        expr: up{job="scraper"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Scraper instance is down"
+
+      - alert: HighErrorRate
+        expr: rate(scrapy_errors_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High scraping error rate detected"

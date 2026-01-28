@@ -1,0 +1,90 @@
+name: job-scraper
+
+services:
+  # redis queue & cache
+  redis:
+    image: redis:alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - scraper_net
+
+  # redis gui
+  redis-insight:
+    image: redis/redisinsight:latest
+    ports:
+      - "${REDIS_INSIGHT_PORT:-5540}:5540"
+    volumes:
+      - redis_insight_data:/data
+    networks:
+      - scraper_net
+    depends_on:
+      - redis
+
+  # main scraper worker
+  scraper-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.scraper
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - LOG_LEVEL=INFO
+      - PROMETHEUS_PORT=9410
+    volumes:
+      - ../config:/app/config
+      - ..:/app
+    networks:
+      - scraper_net
+    depends_on:
+      - redis
+
+  # prometheus metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - scraper_net
+
+  # grafana dashboard
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - scraper_net
+
+  # admin dashboard
+  dashboard:
+    build:
+      context: ../admin-dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    networks:
+      - scraper_net
+
+volumes:
+  redis_data:
+  redis_insight_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  scraper_net:
+    driver: bridge

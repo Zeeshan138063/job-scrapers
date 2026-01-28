@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scraper Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="env-config.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+        }
+    </style>
+
+</head>
+
+<body class="min-h-screen flex flex-col">
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="flex-grow flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">🔒 Admin Login</h1>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" id="email" required class="w-full border rounded p-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Password</label>
+                    <input type="password" id="password" required class="w-full border rounded p-2">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition">
+                    Sign In
+                </button>
+                <div id="login-error" class="text-red-500 text-sm text-center hidden"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DASHBOARD SCREEN (Hidden by default) -->
+    <div id="dashboard-screen" class="hidden p-8 flex-grow">
+        <div class="max-w-6xl mx-auto">
+            <header class="mb-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">🕷️ Scraper Configuration</h1>
+                    <p id="user-email" class="text-sm text-gray-500 mt-1"></p>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="openCreate()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition font-medium text-sm">+
+                        Add Scraper</button>
+                    <div id="status"
+                        class="text-sm font-mono bg-white px-3 py-1 rounded shadow hidden transition-opacity"></div>
+                    <button onclick="handleLogout()"
+                        class="text-sm text-red-600 hover:text-red-800 font-medium">Logout</button>
+                </div>
+            </header>
+
+            <div id="configs-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="text-center w-full col-span-2 py-12 text-gray-500">Loading configurations...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg shadow-xl">
+            <h2 id="modal-title" class="text-xl font-bold mb-4">Edit Configuration</h2>
+            <form id="edit-form" class="space-y-4">
+                <div id="id-container">
+                    <label class="block text-sm font-medium text-gray-700">Spider ID</label>
+                    <input type="text" id="edit-id" class="w-full border rounded p-2 mt-1 bg-gray-100" readonly>
+                </div>
+
+                <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded">
+                    <input type="checkbox" id="edit-active" class="w-5 h-5 text-blue-600 rounded">
+                    <label for="edit-active" class="font-medium cursor-pointer select-none">Spider Active</label>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Cron Schedule</label>
+                    <input type="text" id="edit-schedule" class="w-full border rounded p-2 text-sm font-mono mt-1"
+                        placeholder="0 */4 * * *">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Concurrency</label>
+                        <input type="number" id="edit-concurrency" class="w-full border rounded p-2 mt-1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Download Delay (s)</label>
+                        <input type="number" step="0.1" id="edit-delay" class="w-full border rounded p-2 mt-1">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Search Queries (comma separated)</label>
+                    <input type="text" id="edit-queries" class="w-full border rounded p-2 mt-1">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Locations (comma separated)</label>
+                    <input type="text" id="edit-locations" class="w-full border rounded p-2 mt-1">
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save
+                        Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // Load from injected window.env (Docker) or fallback to LocalStorage/Prompt
+        const SUPABASE_URL = window.env?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL') || prompt('Enter Supabase URL:');
+        const SUPABASE_KEY = window.env?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY') || prompt('Enter Supabase Key:');
+
+        if (SUPABASE_URL && SUPABASE_KEY) {
+            localStorage.setItem('SUPABASE_URL', SUPABASE_URL);
+            localStorage.setItem('SUPABASE_KEY', SUPABASE_KEY);
+        }
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // --- AUTH LOGIC ---
+        const loginScreen = document.getElementById('login-screen');
+        const dashboardScreen = document.getElementById('dashboard-screen');
+        const userEmailInfo = document.getElementById('user-email');
+
+        async function checkSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                showDashboard(session.user);
+            } else {
+                showLogin();
+            }
+        }
+
+        function showLogin() {
+            loginScreen.classList.remove('hidden');
+            dashboardScreen.classList.add('hidden');
+        }
+
+        function showDashboard(user) {
+            loginScreen.classList.add('hidden');
+            dashboardScreen.classList.remove('hidden');
+            userEmailInfo.textContent = `Logged in as: ${user.email}`;
+            fetchConfigs(); // Load data only after login
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('login-error');
+
+            errorDiv.classList.add('hidden');
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            } else {
+                showDashboard(data.user);
+            }
+        });
+
+        async function handleLogout() {
+            await supabaseClient.auth.signOut();
+            showLogin();
+        }
+
+        // --- DATA LOGIC ---
+        async function fetchConfigs() {
+            const { data, error } = await supabaseClient
+                .from('scraper_spider_configs')
+                .select('*')
+                .order('spider_id');
+
+            if (error) {
+                alert('Error fetching configs: ' + error.message);
+                return;
+            }
+
+            const container = document.getElementById('configs-container');
+
+            if (data.length === 0) {
+                container.innerHTML = '<div class="text-center w-full col-span-2 py-12 text-gray-400">No active configurations found. Please check your database.</div>';
+                return;
+            }
+
+            try {
+                container.innerHTML = data.map(spider => {
+                    const queries = spider.search_queries || [];
+                    const locations = spider.locations || [];
+
+                    return `
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative overflow-hidden transition hover:shadow-md">
+                    <div class="absolute top-0 right-0 p-4">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${spider.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${spider.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                    
+                    <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center">
+                        ${spider.spider_id}
+                    </h3>
+                    
+                    <div class="space-y-2 text-sm text-gray-600 mb-6 mt-4">
+                        <div class="flex justify-between border-b pb-1"><span>🕒 Schedule</span> <code class="bg-gray-100 px-1 rounded">${spider.cron_schedule}</code></div>
+                        <div class="flex justify-between border-b pb-1"><span>🚀 Threads</span> <span>${spider.concurrent_requests}</span></div>
+                        <div class="flex justify-between border-b pb-1"><span>🛑 Delay</span> <span>${spider.download_delay}s</span></div>
+                        <div class="pt-1">
+                            <span class="font-semibold text-gray-700">Queries (${queries.length}):</span>
+                            <div class="truncate text-gray-500 text-xs mt-1" title="${queries.join(', ')}">${queries.join(', ')}</div>
+                        </div>
+                    </div>
+
+                    <button onclick='openEdit(${JSON.stringify(spider)})' 
+                        class="w-full bg-blue-50 text-blue-700 font-medium py-2 px-4 rounded hover:bg-blue-100 transition-colors border border-blue-200">
+                        Configure
+                    </button>
+                </div>
+            `}).join('');
+            } catch (err) {
+                console.error("Rendering error:", err);
+                container.innerHTML = `<div class="text-center text-red-500 py-12">Error rendering dashboard: ${err.message}</div>`;
+            }
+        }
+
+        function openCreate() {
+            document.getElementById('modal-title').textContent = 'Create New Scraper';
+
+            const idInput = document.getElementById('edit-id');
+            idInput.readOnly = false;
+            idInput.value = '';
+            idInput.classList.remove('bg-gray-100');
+
+            document.getElementById('edit-active').checked = true;
+            document.getElementById('edit-schedule').value = '0 */4 * * *';
+            document.getElementById('edit-concurrency').value = 2;
+            document.getElementById('edit-delay').value = 2.0;
+            document.getElementById('edit-queries').value = '';
+            document.getElementById('edit-locations').value = '';
+
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function openEdit(spider) {
+            document.getElementById('modal-title').textContent = 'Edit Configuration';
+
+            const idInput = document.getElementById('edit-id');
+            idInput.readOnly = true;
+            idInput.value = spider.spider_id;
+            idInput.classList.add('bg-gray-100');
+
+            document.getElementById('edit-active').checked = spider.is_active;
+            document.getElementById('edit-schedule').value = spider.cron_schedule;
+            document.getElementById('edit-concurrency').value = spider.concurrent_requests;
+            document.getElementById('edit-delay').value = spider.download_delay;
+            document.getElementById('edit-queries').value = (spider.search_queries || []).join(', ');
+            document.getElementById('edit-locations').value = (spider.locations || []).join(', ');
+
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        // Close modal on click outside
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        document.getElementById('edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+
+            // Start with base object
+            const baseData = {
+                is_active: document.getElementById('edit-active').checked,
+                cron_schedule: document.getElementById('edit-schedule').value,
+                concurrent_requests: parseInt(document.getElementById('edit-concurrency').value),
+                download_delay: parseFloat(document.getElementById('edit-delay').value),
+                search_queries: document.getElementById('edit-queries').value.split(',').map(s => s.trim()).filter(s => s),
+                locations: document.getElementById('edit-locations').value.split(',').map(s => s.trim()).filter(s => s),
+                updated_at: new Date().toISOString()
+            };
+
+            const isEdit = document.getElementById('edit-id').readOnly;
+            let error;
+
+            if (isEdit) {
+                const { error: err } = await supabaseClient
+                    .from('scraper_spider_configs')
+                    .update(baseData)
+                    .eq('spider_id', id);
+                error = err;
+            } else {
+                if (!id) { alert('Spider ID is required'); return; }
+                baseData.spider_id = id;
+                const { error: err } = await supabaseClient
+                    .from('scraper_spider_configs')
+                    .insert([baseData]);
+                error = err;
+            }
+
+            if (error) {
+                alert('Update failed: ' + error.message);
+            } else {
+                closeModal();
+                fetchConfigs();
+                showStatus('Configuration saved successfully!');
+            }
+        });
+
+        function showStatus(msg) {
+            const el = document.getElementById('status');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 3000);
+        }
+
+        // Init
+        checkSession();
+    </script>
+</body>
+
+</html>
