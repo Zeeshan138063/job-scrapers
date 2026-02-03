@@ -21,7 +21,7 @@ class EnrichmentPipeline:
         'git', 'ci/cd', 'agile', 'scrum', 'rest api', 'graphql'
     ]
     
-    def process_item(self, item, spider):
+    def process_item(self, item):
         """Enrich item data"""
         
         # Parse location

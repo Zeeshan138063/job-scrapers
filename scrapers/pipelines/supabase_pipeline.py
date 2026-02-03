@@ -11,9 +11,10 @@ class SupabasePipeline:
     Handles upserts based on dedup_hash
     """
     
-    def __init__(self, supabase_url: str, supabase_key: str):
+    def __init__(self, supabase_url: str, supabase_key: str, crawler=None):
         self.supabase_url = supabase_url
         self.supabase_key = supabase_key
+        self.crawler = crawler
         self.client: Optional[Client] = None
         self.stats = {'inserted': 0, 'updated': 0, 'failed': 0}
     
@@ -21,23 +22,36 @@ class SupabasePipeline:
     def from_crawler(cls, crawler):
         return cls(
             supabase_url=crawler.settings.get('SUPABASE_URL'),
-            supabase_key=crawler.settings.get('SUPABASE_KEY')
+            supabase_key=crawler.settings.get('SUPABASE_KEY'),
+            crawler=crawler
         )
     
-    def open_spider(self, spider):
+    def open_spider(self):
         """Initialize Supabase client"""
-        self.client = create_client(self.supabase_url, self.supabase_key)
-        logger.info(f"SupabasePipeline initialized for {spider.name}")
+        if not self.supabase_url or not self.supabase_key:
+            logger.warning("Supabase URL or Key missing. SupabasePipeline will be disabled.")
+            self.client = None
+            return
+        
+        try:
+            self.client = create_client(self.supabase_url, self.supabase_key)
+            spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
+            logger.info(f"SupabasePipeline initialized for {spider_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize Supabase client: {e}")
+            self.client = None
     
-    def close_spider(self, spider):
+    def close_spider(self):
         """Log final stats"""
         logger.info(
             f"Supabase stats: {self.stats['inserted']} inserted, "
             f"{self.stats['updated']} updated, {self.stats['failed']} failed"
         )
     
-    def process_item(self, item, spider):
+    def process_item(self, item):
         """Save item to Supabase"""
+        if not self.client:
+            return item
         
         try:
             # Prepare data for insert

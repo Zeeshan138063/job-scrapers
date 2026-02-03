@@ -7,7 +7,7 @@ SPIDER_MODULES = ['scrapers.spiders']
 NEWSPIDER_MODULE = 'scrapers.spiders'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests
 CONCURRENT_REQUESTS = 16
@@ -18,7 +18,7 @@ DOWNLOAD_DELAY = 2
 RANDOMIZE_DOWNLOAD_DELAY = True
 
 # Disable cookies (enabled by default)
-COOKIES_ENABLED = False
+COOKIES_ENABLED = True
 
 # Disable Telnet Console (enabled by default)
 TELNETCONSOLE_ENABLED = False
@@ -31,6 +31,9 @@ DEFAULT_REQUEST_HEADERS = {
 
 # Enable or disable downloader middlewares
 DOWNLOADER_MIDDLEWARES = {
+    'scrapers.middlewares.scrapeops_middleware.ScrapeOpsFakeUserAgentMiddleware': 400,
+    'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+    'scrapers.middlewares.curl_cffi_middleware.CurlCFFIDownloaderMiddleware': 580,
     'scrapers.middlewares.crawl4ai_middleware.Crawl4AIDownloaderMiddleware': 585,
 }
 
@@ -58,7 +61,7 @@ AUTOTHROTTLE_DEBUG = False
 STATS_CLASS = 'scrapy.statscollectors.MemoryStatsCollector'
 
 # User agent
-USER_AGENT = 'JobScraperBot/1.0 (+https://yoursite.com/bot)'
+# USER_AGENT = 'JobScraperBot/1.0 (+https://yoursite.com/bot)'
 
 # Retry settings
 RETRY_ENABLED = True
@@ -88,3 +91,12 @@ CRAWL4AI_API_TOKEN = os.getenv('CRAWL4AI_API_TOKEN')
 
 # Spider configuration path
 SPIDER_CONFIG_PATH = os.getenv('SPIDER_CONFIG_PATH', '/app/config/spiders.yml')
+
+CURL_CFFI_IMPERSONATE = os.getenv('CURL_CFFI_IMPERSONATE', 'chrome124')
+
+# ScrapeOps Fake User-Agent Settings
+SCRAPEOPS_API_KEY = 'dc6c5839-c058-4683-b1a2-cf23693d733b'
+SCRAPEOPS_FAKE_USER_AGENT_ENABLED = True
+SCRAPEOPS_CACHE_ENABLED = True
+SCRAPEOPS_CACHE_PATH = os.path.join(os.path.dirname(__file__), 'data', 'scrapeops_ua_cache.json')
+SCRAPEOPS_CACHE_EXPIRY = 86400  # 24 hours

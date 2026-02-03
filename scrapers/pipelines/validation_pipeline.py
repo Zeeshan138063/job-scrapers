@@ -12,7 +12,7 @@ class ValidationPipeline:
     
     REQUIRED_FIELDS = ['title', 'company', 'url', 'source']
     
-    def process_item(self, item, spider):
+    def process_item(self, item):
         """Validate required fields and clean data"""
         
         # Check required fields

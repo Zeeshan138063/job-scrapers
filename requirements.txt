@@ -7,3 +7,4 @@ pyyaml
 psycopg2-binary
 croniter
 aiohttp
+requests

@@ -12,9 +12,10 @@ class DeduplicationPipeline:
     Uses hash of (source + external_id)
     """
     
-    def __init__(self, redis_url: str, ttl_days: int = 30):
+    def __init__(self, redis_url: str, ttl_days: int = 30, crawler=None):
         self.redis_url = redis_url
         self.ttl_days = ttl_days
+        self.crawler = crawler
         self.redis_client = None
         self.stats = {'duplicates': 0, 'new': 0}
     
@@ -22,15 +23,17 @@ class DeduplicationPipeline:
     def from_crawler(cls, crawler):
         return cls(
             redis_url=crawler.settings.get('REDIS_URL', 'redis://localhost:6379'),
-            ttl_days=crawler.settings.get('DEDUP_TTL_DAYS', 30)
+            ttl_days=crawler.settings.get('DEDUP_TTL_DAYS', 30),
+            crawler=crawler
         )
     
-    def open_spider(self, spider):
+    def open_spider(self):
         """Initialize Redis connection"""
         self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
-        logger.info(f"DeduplicationPipeline initialized for {spider.name}")
+        spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
+        logger.info(f"DeduplicationPipeline initialized for {spider_name}")
     
-    def close_spider(self, spider):
+    def close_spider(self):
         """Log stats and close connection"""
         logger.info(
             f"Deduplication stats: {self.stats['new']} new, "
@@ -39,7 +42,7 @@ class DeduplicationPipeline:
         if self.redis_client:
             self.redis_client.close()
     
-    def process_item(self, item, spider):
+    def process_item(self, item):
         """Check if item already exists"""
         
         # Create unique hash
@@ -47,7 +50,8 @@ class DeduplicationPipeline:
         dedup_hash = hashlib.md5(dedup_key.encode()).hexdigest()
         
         # Check Redis set
-        redis_key = f"scraped_jobs:{spider.name}"
+        spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
+        redis_key = f"scraped_jobs:{spider_name}"
         
         if self.redis_client.sismember(redis_key, dedup_hash):
             self.stats['duplicates'] += 1

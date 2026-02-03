@@ -12,7 +12,8 @@ class Crawl4AIDownloaderMiddleware:
     Adapter Pattern (Remote): Sends requests to external Crawl4AI service
     """
     
-    def __init__(self, api_url, api_token=None):
+    def __init__(self, crawler, api_url, api_token=None):
+        self.crawler = crawler
         self.api_url = api_url
         self.api_token = api_token
         self.stats = {'requests': 0, 'successes': 0, 'failures': 0}
@@ -30,11 +31,12 @@ class Crawl4AIDownloaderMiddleware:
              base_url = base_url.rstrip('/') + '/crawl'
 
         return cls(
+            crawler=crawler,
             api_url=base_url,
             api_token=crawler.settings.get('CRAWL4AI_API_TOKEN')
         )
 
-    def process_request(self, request, spider):
+    def process_request(self, request):
         # Only process if explicitly marked
         if not request.meta.get('use_crawl4ai', False):
             return None
@@ -43,9 +45,9 @@ class Crawl4AIDownloaderMiddleware:
         # But process_request expects Response or Request or None.
         # To do async I/O in middleware, we should return a Deferred.
         # Scrapy supports async def since 2.0.
-        return self._process_async(request, spider)
+        return self._process_async(request)
 
-    async def _process_async(self, request, spider):
+    async def _process_async(self, request):
         self.stats['requests'] += 1
         logger.debug(f"Calling Remote Crawl4AI for: {request.url}")
         
