@@ -1,7 +1,23 @@
 name: job-scraper
 
 services:
-  # redis queue & cache
+  # 1. PostgreSQL Staging Database
+  db:
+    image: postgres:16-alpine
+    platform: linux/amd64
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - scraper_net
+
+  # 2. Redis queue & cache
   redis:
     image: redis:alpine
     ports:
@@ -11,9 +27,10 @@ services:
     networks:
       - scraper_net
 
-  # redis gui
+  # 3. Redis gui
   redis-insight:
     image: redis/redisinsight:latest
+    platform: linux/amd64
     ports:
       - "${REDIS_INSIGHT_PORT:-5540}:5540"
     volumes:
@@ -23,15 +40,32 @@ services:
     depends_on:
       - redis
 
-  # main scraper worker
+  # 4. Scraper API (FastAPI + SQLModel)
+  scraper-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - API_SECRET_KEY=${API_SECRET_KEY}
+    volumes:
+      - ..:/app
+    networks:
+      - scraper_net
+    depends_on:
+      - db
+
+  # 5. Main scraper worker
   scraper-worker:
     build:
       context: ..
       dockerfile: docker/Dockerfile.scraper
     environment:
       - REDIS_URL=redis://redis:6379
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
+      - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=INFO
       - PROMETHEUS_PORT=9410
     volumes:
@@ -41,12 +75,13 @@ services:
       - scraper_net
     depends_on:
       - redis
+      - db
 
-  # prometheus metrics
+  # 6. Prometheus metrics
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "${PROMETHEUS_PORT:-9091}:9090"
     volumes:
       - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ../prometheus/alerts.yml:/etc/prometheus/alerts.yml
@@ -56,34 +91,56 @@ services:
     networks:
       - scraper_net
 
-  # grafana dashboard
+  # 7. Grafana dashboard
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      - "${GRAFANA_PORT:-3100}:3000"
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
       - scraper_net
 
-  # admin dashboard
+  # 8. Admin dashboard
   dashboard:
     build:
       context: ../admin-dashboard
       dockerfile: Dockerfile
     ports:
-      - "${DASHBOARD_PORT:-8080}:80"
+      - "${DASHBOARD_PORT:-8081}:80"
     environment:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
+      - API_SECRET_KEY=${API_SECRET_KEY}
     networks:
       - scraper_net
 
+  # 9. pgAdmin for DB management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    platform: linux/amd64
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - scraper_net
+    depends_on:
+      - db
+
 volumes:
+  postgres_data:
   redis_data:
   redis_insight_data:
   prometheus_data:
   grafana_data:
+  pgadmin_data:
+
 
 networks:
   scraper_net:

@@ -47,7 +47,7 @@ ITEM_PIPELINES = {
     'scrapers.pipelines.validation_pipeline.ValidationPipeline': 100,
     'scrapers.pipelines.deduplication_pipeline.DeduplicationPipeline': 200,
     'scrapers.pipelines.enrichment_pipeline.EnrichmentPipeline': 300,
-    'scrapers.pipelines.supabase_pipeline.SupabasePipeline': 400,
+    'scrapers.pipelines.postgres_pipeline.PostgresPipeline': 400,
 }
 
 # Enable AutoThrottle extension
@@ -75,8 +75,7 @@ LOG_DATEFORMAT = '%Y-%m-%d %H:%M:%S'
 
 # Environment variables
 REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379')
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 # Prometheus settings
 PROMETHEUS_ENABLED = True

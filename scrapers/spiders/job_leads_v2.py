@@ -3,6 +3,7 @@ import scrapy
 from scrapy.http import Request
 from bs4 import BeautifulSoup
 import logging
+from scrapers.utils.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
@@ -11,20 +12,55 @@ class JobLeadsSpiderV2(scrapy.Spider):
     allowed_domains = ["jobleads.com"]
     start_urls = ["https://www.jobleads.com/"]
 
-    def __init__(self, email=None, password=None, keywords="python", country="NLD", *args, **kwargs):
+    def __init__(self, email=None, password=None, search_queries=None, locations=None, min_salary=40000, radius=0, filters=None, *args, **kwargs):
         super(JobLeadsSpiderV2, self).__init__(*args, **kwargs)
         self.email = email or "berapec475@ixunbo.com"
         self.password = password or "Berapec475@ixunbo.com"
-        self.keywords = keywords
-        self.country = country
+        
+        # Handle search_queries and locations from dashboard/worker
+        if isinstance(search_queries, str):
+            try:
+                self.search_queries = json.loads(search_queries)
+            except:
+                self.search_queries = [q.strip() for q in search_queries.split(',')]
+        else:
+            self.search_queries = search_queries or ["python"]
+
+        if isinstance(locations, str):
+            try:
+                self.locations = json.loads(locations)
+            except:
+                self.locations = [l.strip() for l in locations.split(',')]
+        else:
+            self.locations = locations or ["NLD"]
+
+        # Filter out placeholders like "string" or empty strings
+        self.locations = [l for l in self.locations if l and l.lower() not in ["string", "none", "null"]]
+        if not self.locations:
+            self.locations = [""]
+
+        # Handle filters (can be JSON string or dict)
+        self.filters = filters or {}
+        if isinstance(self.filters, str):
+            try:
+                self.filters = json.loads(self.filters)
+            except:
+                self.filters = {}
+            
+        self.min_salary = int(min_salary)
+        self.radius = int(radius)
         self.token = None
+        
+        # Initialize Config Loader
+        self.config_loader = ConfigLoader()
+        self.spider_config = self.config_loader.get_spider_config("jobleads")
         
         # Meta for curl_cffi middleware
         self.curl_meta = {
             "use_curl_cffi": True,
         }
 
-    async def start(self):
+    def start_requests(self):
         # 1) Session bootstrap
         logger.info("Step 1: Session bootstrap")
         yield Request(
@@ -74,13 +110,11 @@ class JobLeadsSpiderV2(scrapy.Spider):
         logger.info(f"Login Response Status: {response.status}")
         
         # Parse all cookies from Set-Cookie headers
-        # Scrapy's response.headers.getlist returns a list of bytes
         all_cookies = response.headers.getlist('Set-Cookie')
         cookie_dict = {}
         for c in all_cookies:
             try:
                 decoded = c.decode('utf-8')
-                # A Set-Cookie header looks like: name=value; Path=/; HttpOnly; ...
                 name_val = decoded.split(';')[0]
                 if '=' in name_val:
                     name, val = name_val.split('=', 1)
@@ -93,8 +127,6 @@ class JobLeadsSpiderV2(scrapy.Spider):
         
         if not jwt_hp or not jwt_s:
             logger.error(f"Failed to find jwt_hp or jwt_s in cookies. Found: {list(cookie_dict.keys())}")
-            # Log the response body for debugging
-            logger.debug(f"Login Response Body: {response.body.decode('utf-8', 'ignore')[:500]}")
             return
 
         self.token = f"{jwt_hp}.{jwt_s}"
@@ -102,27 +134,82 @@ class JobLeadsSpiderV2(scrapy.Spider):
 
         # 4) Job discovery
         logger.info("Step 4: Job discovery (Classic Search)")
-        yield from self.fetch_search_page(0)
+        for query in self.search_queries:
+            for country in self.locations:
+                logger.info(f"Searching for '{query}' in {country}")
+                yield from self.fetch_search_page(0, query, country)
 
-    def fetch_search_page(self, start_index):
+    def fetch_search_page(self, start_index, query, country_input, initial_search_id=0, refined_search_id=0):
         url = "https://www.jobleads.com/api/v2/search/v2"
+        
+        # Support "City,Country" format (e.g., "Lahore,PAK")
+        city = ""
+        country = country_input
+        if ',' in country_input:
+            parts = [p.strip() for p in country_input.split(',')]
+            if len(parts) >= 2:
+                city = parts[0]
+                country = parts[1]
+        
+        # Determine if we have a valid country
+        has_country = country and country.lower() not in ["", "string", "none", "null"]
+        clean_country = country if has_country else ""
+        
+        # Start with standard fields
         payload = {
-            "keywords": self.keywords,
-            "location": "",
-            "country": self.country,
-            "radius": 0,
-            "minSalary": 40000,
+            "keywords": query,
+            "location": city,
+            "country": clean_country,
+            "radius": self.radius,
+            "minSalary": self.min_salary,
             "maxSalary": -1,
+            "initialSearchId": initial_search_id,
+            "refinedSearchId": refined_search_id,
+            "lastExecutedSearch": None,
+            "searchFiltering": 0,
+            "featuredJobs": "",
+            "origin": 1,
+            "savedSearchId": None,
             "startIndex": start_index,
             "limit": 25,
             "filters": {},
         }
         
+        # Dynamically inject filters from self.filters based on DB definitions
+        registered_filters = self.spider_config.get("filters", {})
+        for key, value in self.filters.items():
+            filter_def = registered_filters.get(key)
+            if filter_def:
+                # Validation (Optional: can be more strict if needed)
+                if filter_def["type"] == "select":
+                    valid_values = [opt["value"] for opt in filter_def["options"]]
+                    if value not in valid_values:
+                        logger.warning(f"Invalid value '{value}' for filter '{key}'. Expected one of: {valid_values}")
+                        # Skip or use default? For now, we'll keep it as is but warn.
+                
+                if filter_def["is_nested"]:
+                    payload["filters"][key] = value
+                else:
+                    payload[key] = value
+            else:
+                # If not in DB, fallback to generic 'filters' nesting as per Jobleads convention
+                payload["filters"][key] = value
+        
+        # Headers matched exactly to working classic_headers in job_leads.py
+        referer_url = f"https://www.jobleads.com/search/jobs?keywords={query}"
+        if city:
+            referer_url += f"&location={city}"
+        if has_country:
+            referer_url += f"&location_country={clean_country}"
+            
         headers = {
+            "accept": "application/json, text/plain, */*",
             "content-type": "application/json",
             "authorization": f"Bearer {self.token}",
             "x-requested-with": "XMLHttpRequest",
-            "referer": "https://www.jobleads.com/search/jobs",
+            "origin": "https://www.jobleads.com",
+            "referer": referer_url,
+            "user-agent": "Mozilla/5.0",
         }
         
         yield Request(
@@ -131,7 +218,16 @@ class JobLeadsSpiderV2(scrapy.Spider):
             body=json.dumps(payload),
             headers=headers,
             callback=self.parse_search_results,
-            meta={**self.curl_meta, "start_index": start_index},
+            meta={
+                **self.curl_meta, 
+                "start_index": start_index,
+                "query": query,
+                "country": clean_country,
+                "country_input": country_input,
+                "city": city,
+                "initial_search_id": initial_search_id,
+                "refined_search_id": refined_search_id
+            },
             dont_filter=True
         )
 
@@ -139,8 +235,16 @@ class JobLeadsSpiderV2(scrapy.Spider):
         data = json.loads(response.body)
         jobs = data.get("jobs", []) or data.get("resultList", [])
         
-        logger.info(f"Found {len(jobs)} jobs on page starting at {response.meta['start_index']}")
+        # Extract dynamic IDs for intelligent pagination
+        new_initial_id = data.get("initialSearchId", response.meta.get("initial_search_id", 0))
+        new_refined_id = data.get("refinedSearchId", response.meta.get("refined_search_id", 0))
+
+        query = response.meta['query']
+        country = response.meta['country']
         
+        logger.info(f"Found {len(jobs)} jobs for '{query}' in {country} on page starting at {response.meta['start_index']}")
+        logger.debug(f"Search IDs in response: initial={new_initial_id}, refined={new_refined_id}")
+
         for job in jobs:
             job_id = job.get("id") or job.get("jobId")
             if job_id:
@@ -150,7 +254,13 @@ class JobLeadsSpiderV2(scrapy.Spider):
         # Pagination
         if len(jobs) == 25:
             new_start = response.meta['start_index'] + 25
-            yield from self.fetch_search_page(new_start)
+            yield from self.fetch_search_page(
+                new_start, 
+                query, 
+                response.meta.get("country_input", country),
+                initial_search_id=new_initial_id,
+                refined_search_id=new_refined_id
+            )
 
     def fetch_job_details(self, job_id):
         # Locale can be passed via spider args or determined from country, 

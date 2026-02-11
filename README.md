@@ -39,6 +39,7 @@ Run the SQL migrations in your Supabase SQL Editor:
 1. `migrations/supabase/001_initial_schema.sql` (Job listings table)
 2. `migrations/supabase/002_metrics_schema.sql` (Metrics & Alerts)
 3. `migrations/supabase/003_spider_configs.sql` (Dynamic Configs)
+4. `migrations/supabase/007_add_filters_to_configs.sql` (New: Support for extra filters)
 
 ### 4. Run with Docker
 Start the entire stack (Worker, Redis, Prometheus, Grafana):
@@ -70,7 +71,7 @@ Manage scraper status, schedules, and concurrency dynamically.
 
 ### Grafana (Monitoring)
 View real-time metrics (Items scraped, Error rates, Latency).
-- URL: `http://localhost:3000`
+- URL: `http://localhost:3100`
 - Login: `admin` / `admin` (default)
 - **Setup**:
     1. Go to **Configuration** > **Data Sources** > **Add data source**.
@@ -78,6 +79,20 @@ View real-time metrics (Items scraped, Error rates, Latency).
     3. URL: `http://prometheus:9090`.
     4. Save & Test.
     5. Import dashboard from `grafana/dashboards/scraper_overview.json`.
+
+### pgAdmin (Database GUI)
+Manage the local PostgreSQL database via a web interface.
+- URL: `http://localhost:5050`
+- Login: `admin@admin.com` / `admin`
+- **Connecting to DB**:
+    1. Right-click **Servers** > **Register** > **Server...**
+    2. **General** tab: Name it `Local DB`.
+    3. **Connection** tab:
+        - **Host**: `db`
+        - **Port**: `5432`
+        - **Username**: `scraper_user`
+        - **Password**: `scraper_pass`
+    4. Click **Save**.
 
 ## 🛠 Local Development
 To run scrapers locally without Docker:

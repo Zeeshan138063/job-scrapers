@@ -72,7 +72,7 @@
             <form id="edit-form" class="space-y-4">
                 <div id="id-container">
                     <label class="block text-sm font-medium text-gray-700">Spider ID</label>
-                    <input type="text" id="edit-id" class="w-full border rounded p-2 mt-1 bg-gray-100" readonly>
+                    <select id="edit-id" class="w-full border rounded p-2 mt-1"></select>
                 </div>
 
                 <div class="flex items-center space-x-2 bg-gray-50 p-2 rounded">
@@ -107,6 +107,18 @@
                     <input type="text" id="edit-locations" class="w-full border rounded p-2 mt-1">
                 </div>
 
+                <div id="jobleads-filters" class="grid grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Min Salary (€)</label>
+                        <input type="number" id="edit-min-salary" class="w-full border rounded p-2 mt-1"
+                            placeholder="40000">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Radius (km)</label>
+                        <input type="number" id="edit-radius" class="w-full border rounded p-2 mt-1" placeholder="0">
+                    </div>
+                </div>
+
                 <div class="flex justify-end space-x-3 mt-6">
                     <button type="button" onclick="closeModal()"
                         class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
@@ -122,10 +134,14 @@
         // Load from injected window.env (Docker) or fallback to LocalStorage/Prompt
         const SUPABASE_URL = window.env?.SUPABASE_URL || localStorage.getItem('SUPABASE_URL') || prompt('Enter Supabase URL:');
         const SUPABASE_KEY = window.env?.SUPABASE_KEY || localStorage.getItem('SUPABASE_KEY') || prompt('Enter Supabase Key:');
+        const API_BASE_URL = window.env?.API_URL || 'http://localhost:8000';
+        const API_KEY = window.env?.API_SECRET_KEY || localStorage.getItem('API_KEY') || prompt('Enter Scraper API Key:');
+        let AVAILABLE_SPIDERS = [];
 
-        if (SUPABASE_URL && SUPABASE_KEY) {
+        if (SUPABASE_URL && SUPABASE_KEY && API_KEY) {
             localStorage.setItem('SUPABASE_URL', SUPABASE_URL);
             localStorage.setItem('SUPABASE_KEY', SUPABASE_KEY);
+            localStorage.setItem('API_KEY', API_KEY);
         }
 
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -183,35 +199,53 @@
         }
 
         // --- DATA LOGIC ---
-        async function fetchConfigs() {
-            const { data, error } = await supabaseClient
-                .from('scraper_spider_configs')
-                .select('*')
-                .order('spider_id');
-
-            if (error) {
-                alert('Error fetching configs: ' + error.message);
-                return;
-            }
-
-            const container = document.getElementById('configs-container');
-
-            if (data.length === 0) {
-                container.innerHTML = '<div class="text-center w-full col-span-2 py-12 text-gray-400">No active configurations found. Please check your database.</div>';
-                return;
-            }
-
+        // --- DATA LOGIC ---
+        async function fetchSpiders() {
             try {
-                container.innerHTML = data.map(spider => {
-                    const queries = spider.search_queries || [];
-                    const locations = spider.locations || [];
+                const response = await fetch(`${API_BASE_URL}/spiders`, {
+                    headers: { 'X-API-KEY': API_KEY }
+                });
+                if (response.ok) {
+                    AVAILABLE_SPIDERS = await response.json();
+                    const select = document.getElementById('edit-id');
+                    select.innerHTML = AVAILABLE_SPIDERS.map(s => `<option value="${s}">${s}</option>`).join('');
+                }
+            } catch (err) {
+                console.error("Failed to fetch spiders:", err);
+            }
+        }
 
-                    return `
+        async function fetchConfigs() {
+            try {
+                const [configsRes, runsRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/configs`, { headers: { 'X-API-KEY': API_KEY } }),
+                    fetch(`${API_BASE_URL}/scraper/runs?limit=20`, { headers: { 'X-API-KEY': API_KEY } })
+                ]);
+
+                if (!configsRes.ok) throw new Error('API request failed');
+                const data = await configsRes.json();
+                const runs = await runsRes.json();
+
+                const container = document.getElementById('configs-container');
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="text-center w-full col-span-2 py-12 text-gray-400">No active configurations found. Please check your database or run the seed script.</div>';
+                    return;
+                }
+
+                try {
+                    container.innerHTML = data.map(spider => {
+                        const queries = spider.search_queries || [];
+                        const lastRun = runs.find(r => r.spider_name === spider.spider_id);
+                        const statusColor = lastRun?.status === 'completed' ? 'text-green-600' : (lastRun?.status === 'failed' ? 'text-red-600' : 'text-gray-400');
+
+                        return `
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative overflow-hidden transition hover:shadow-md">
-                    <div class="absolute top-0 right-0 p-4">
+                    <div class="absolute top-0 right-0 p-4 flex flex-col items-end">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${spider.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
                             ${spider.is_active ? 'Active' : 'Inactive'}
                         </span>
+                        ${lastRun ? `<span class="text-[10px] mt-1 font-mono ${statusColor}">${lastRun.status} (${lastRun.duration_seconds?.toFixed(1) || 0}s)</span>` : ''}
                     </div>
                     
                     <h3 class="text-lg font-bold text-gray-900 mb-2 flex items-center">
@@ -228,15 +262,26 @@
                         </div>
                     </div>
 
-                    <button onclick='openEdit(${JSON.stringify(spider)})' 
-                        class="w-full bg-blue-50 text-blue-700 font-medium py-2 px-4 rounded hover:bg-blue-100 transition-colors border border-blue-200">
-                        Configure
-                    </button>
+                    <div class="flex space-x-2">
+                        <button onclick='openEdit(${JSON.stringify(spider)})' 
+                            class="flex-1 bg-white text-gray-700 font-medium py-2 px-4 rounded hover:bg-gray-50 transition-colors border border-gray-200">
+                            Edit
+                        </button>
+                        <button onclick='runNow(${JSON.stringify(spider)})' 
+                            class="flex-1 bg-blue-600 text-white font-medium py-2 px-4 rounded hover:bg-blue-700 transition-colors shadow-sm">
+                            Run Now
+                        </button>
+                    </div>
                 </div>
             `}).join('');
+                } catch (err) {
+                    console.error("Rendering error:", err);
+                    container.innerHTML = `<div class="text-center text-red-500 py-12">Error rendering dashboard: ${err.message}</div>`;
+                }
             } catch (err) {
-                console.error("Rendering error:", err);
-                container.innerHTML = `<div class="text-center text-red-500 py-12">Error rendering dashboard: ${err.message}</div>`;
+                console.error("API error:", err);
+                const container = document.getElementById('configs-container');
+                container.innerHTML = `<div class="text-center text-red-500 py-12">Failed to load configurations: ${err.message}</div>`;
             }
         }
 
@@ -244,9 +289,8 @@
             document.getElementById('modal-title').textContent = 'Create New Scraper';
 
             const idInput = document.getElementById('edit-id');
-            idInput.readOnly = false;
-            idInput.value = '';
-            idInput.classList.remove('bg-gray-100');
+            idInput.disabled = false;
+            idInput.value = AVAILABLE_SPIDERS[0] || '';
 
             document.getElementById('edit-active').checked = true;
             document.getElementById('edit-schedule').value = '0 */4 * * *';
@@ -254,6 +298,8 @@
             document.getElementById('edit-delay').value = 2.0;
             document.getElementById('edit-queries').value = '';
             document.getElementById('edit-locations').value = '';
+            document.getElementById('edit-min-salary').value = 40000;
+            document.getElementById('edit-radius').value = 0;
 
             document.getElementById('modal').classList.remove('hidden');
         }
@@ -262,9 +308,8 @@
             document.getElementById('modal-title').textContent = 'Edit Configuration';
 
             const idInput = document.getElementById('edit-id');
-            idInput.readOnly = true;
+            idInput.disabled = true;
             idInput.value = spider.spider_id;
-            idInput.classList.add('bg-gray-100');
 
             document.getElementById('edit-active').checked = spider.is_active;
             document.getElementById('edit-schedule').value = spider.cron_schedule;
@@ -272,6 +317,10 @@
             document.getElementById('edit-delay').value = spider.download_delay;
             document.getElementById('edit-queries').value = (spider.search_queries || []).join(', ');
             document.getElementById('edit-locations').value = (spider.locations || []).join(', ');
+
+            const filters = spider.filters || {};
+            document.getElementById('edit-min-salary').value = filters.min_salary || 40000;
+            document.getElementById('edit-radius').value = filters.radius || 0;
 
             document.getElementById('modal').classList.remove('hidden');
         }
@@ -291,41 +340,75 @@
 
             // Start with base object
             const baseData = {
+                spider_id: id,
                 is_active: document.getElementById('edit-active').checked,
                 cron_schedule: document.getElementById('edit-schedule').value,
                 concurrent_requests: parseInt(document.getElementById('edit-concurrency').value),
                 download_delay: parseFloat(document.getElementById('edit-delay').value),
                 search_queries: document.getElementById('edit-queries').value.split(',').map(s => s.trim()).filter(s => s),
                 locations: document.getElementById('edit-locations').value.split(',').map(s => s.trim()).filter(s => s),
+                filters: {
+                    min_salary: parseInt(document.getElementById('edit-min-salary').value),
+                    radius: parseInt(document.getElementById('edit-radius').value)
+                },
                 updated_at: new Date().toISOString()
             };
 
             const isEdit = document.getElementById('edit-id').readOnly;
-            let error;
 
-            if (isEdit) {
-                const { error: err } = await supabaseClient
-                    .from('scraper_spider_configs')
-                    .update(baseData)
-                    .eq('spider_id', id);
-                error = err;
-            } else {
-                if (!id) { alert('Spider ID is required'); return; }
-                baseData.spider_id = id;
-                const { error: err } = await supabaseClient
-                    .from('scraper_spider_configs')
-                    .insert([baseData]);
-                error = err;
-            }
+            try {
+                const url = `${API_BASE_URL}/configs`;
+                const method = 'POST'; // We'll just use POST for upsert in the API for simplicity or handle it as is
 
-            if (error) {
-                alert('Update failed: ' + error.message);
-            } else {
+                // If the user hasn't added a PUT endpoint, we can just use POST
+                // For now, I'll assume POST handles the creation/update or I'll add a check.
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': API_KEY
+                    },
+                    body: JSON.stringify(baseData)
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
                 closeModal();
                 fetchConfigs();
                 showStatus('Configuration saved successfully!');
+            } catch (error) {
+                alert('Update failed: ' + error.message);
             }
         });
+
+        async function runNow(spider) {
+            if (!confirm(`Trigger immediate scrape for ${spider.spider_id}?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/scraper/run`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-KEY': API_KEY
+                    },
+                    body: JSON.stringify({
+                        spider_id: spider.spider_id,
+                        search_queries: spider.search_queries,
+                        locations: spider.locations,
+                        max_pages: spider.max_pages || 5,
+                        concurrent_requests: spider.concurrent_requests,
+                        filters: spider.filters
+                    })
+                });
+
+                if (!response.ok) throw new Error(await response.text());
+
+                showStatus('Scrape triggered successfully!');
+                setTimeout(fetchConfigs, 2000); // Reload to show running status if possible
+            } catch (error) {
+                alert('Trigger failed: ' + error.message);
+            }
+        }
 
         function showStatus(msg) {
             const el = document.getElementById('status');
@@ -335,7 +418,9 @@
         }
 
         // Init
+        fetchSpiders();
         checkSession();
+        setInterval(fetchConfigs, 10000); // Auto-refresh every 10s
     </script>
 </body>
 

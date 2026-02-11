@@ -441,6 +441,37 @@ class JobleadsClient:
         r.raise_for_status()
         return r.json()
 
+    def get_job_facet(
+            self,
+            job_id: str,
+            locale: str = "en_PK",
+            language: str = "en",
+    ) -> dict:
+        """
+        Fetch full job details by job ID.
+        """
+
+        url = (
+            f"https://www.jobleads.com/api/v3/job/detailsForAppNew/"
+            f"{locale}/{job_id}?language={language}"
+        )
+
+        headers = {
+            "accept": "application/json, text/plain, */*",
+            "origin": "https://www.jobleads.com",
+            "referer": "https://www.jobleads.com/search/jobs",
+            "x-requested-with": "XMLHttpRequest",
+            "user-agent": "Mozilla/5.0",
+        }
+
+        r = self.request(
+            "GET",
+            url,
+            headers=headers,
+        )
+        r.raise_for_status()
+        return r.json()
+
     # ---------------------------------
     # Fetch Canonical Job HTML Page
     # ---------------------------------
@@ -607,31 +638,177 @@ import scrapy
 from bs4 import BeautifulSoup
 from curl_cffi import requests
 
-if __name__ == "__main__":
-    client = JobleadsClient(
-        email="berapec475@ixunbo.com",
-        password="Berapec475@ixunbo.com",
-    )
+# if __name__ == "__main__":
+#     client = JobleadsClient(
+#         email="berapec475@ixunbo.com",
+#         password="Berapec475@ixunbo.com",
+#     )
+#
+#     # ---------- Classic Search ----------
+#     classic_headers = {
+#         "accept": "application/json, text/plain, */*",
+#         "content-type": "application/json",
+#         "origin": "https://www.jobleads.com",
+#         "referer": "https://www.jobleads.com/search/jobs?keywords=python",
+#         "x-requested-with": "XMLHttpRequest",
+#         "user-agent": "Mozilla/5.0",
+#     }
+#
+#     classic_payload = {
+#         "keywords": "python",
+#         "location": "",
+#         "country": "NLD",
+#         "radius": 0,
+#         "minSalary": 40000,
+#         "maxSalary": -1,
+#         "initialSearchId": 0,
+#         "refinedSearchId": 0,
+#         "lastExecutedSearch": None,
+#         "searchFiltering": 0,
+#         "featuredJobs": "",
+#         "origin": 1,
+#         "savedSearchId": None,
+#         "startIndex": 0,
+#         "limit": 25,
+#         "filters": {},
+#     }
+#
+#     # print("=== CLASSIC SEARCH ===")
+#     # for job in iter_classic_search(client, classic_payload, classic_headers):
+#     #     print(job.get("id"), job.get("title"))
+#     #
+#     # # ---------- Semantic Search ----------
+#     # print("\n=== SEMANTIC SEARCH ===")
+#     # semantic_result = semantic_search(
+#     #     client,
+#     #     keywords=["python"],
+#     #     country_alpha2="NL",
+#     #     min_salary=40000,
+#     #     valid_from_ts=1769764856,
+#     #     limit=100,
+#     # )
+#     #
+#     # print(json.dumps(semantic_result, indent=2)[:1500])
+#
+#
+#
+#
+#     job_id = "ee309af7f1f24849f11fcbc23692b7c7a"
+#
+#     details = client.get_job_details(job_id)
+#     print(json.dumps(details, indent=2))
+#     job_content = details.get('payload',{}).get('content',{})
+#     canonical_url = job_content.get('canonicalUrl',"")
+#     _url = f"https://www.jobleads.com/{canonical_url.lstrip('/')}"
+#     # canonical_url = "https://www.jobleads.com/nl/job/python-developer--amsterdam--eeaccebf11c0e0a0445a8c9b860a03f22"
+#     _scraped_page = client.fetch_job_page_html(_url)
+#     jsonld = client.extract_jobposting_jsonld(_scraped_page)
+#     normalized = client.normalize_jobposting(jsonld)
+#     job_content['job_description'] = normalized
+#     print(normalized)
+#
+#
+#
+#
+#     """
+#     ✅ What you now have
+# 	•	🔐 Correct split-JWT auth (browser-accurate)
+# 	•	🔁 Auto refresh
+# 	•	📄 Classic paginated search
+# 	•	🧠 Semantic / vector (VDB) search
+# 	•	🧱 Clean separation of concerns
+# 	•	🚀 Ready for scale / scraping / pipelines
+#
+# ⸻
+#
+# If you want next:
+# 	•	unify both searches into one merged result set
+# 	•	deduplicate classic vs semantic jobs
+# 	•	async / parallel searches
+# 	•	export to DB / CSV / Parquet
+#     """
+#
+#
+#     # -----------------------------
+#     # Job Detail API
+#     # -----------------------------
+#
+#
+#
+#     # job_id = "ee309af7f1f24849f11fcbc23692b7c7a"
+#     #
+#     # details = client.get_job_details(job_id)
+#     #
+#     # print(json.dumps(details, indent=2))
 
-    # ---------- Classic Search ----------
-    classic_headers = {
-        "accept": "application/json, text/plain, */*",
-        "content-type": "application/json",
-        "origin": "https://www.jobleads.com",
-        "referer": "https://www.jobleads.com/search/jobs?keywords=python",
-        "x-requested-with": "XMLHttpRequest",
-        "user-agent": "Mozilla/5.0",
+if __name__ == '__main__':
+
+
+    url = 'https://www.jobleads.com/api/v1/search/keyword-recommendation/en_PK/python/NLD'
+
+    headers = {
+        'accept': '*/*',
+        'accept-language': 'en-US,en;q=0.9',
+        'priority': 'u=1, i',
+        'referer': 'https://www.jobleads.com/search/jobs',
+        'sec-ch-ua': '"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36'
     }
 
-    classic_payload = {
-        "keywords": "python",
+    cookies = {
+        'locale': 'en_PK',
+        'cookie_version': '1.1',
+        'optimizelySession': '0',
+        'ssr_i18n': 'en',
+        'user_i18n': 'en',
+        '__Host-csrf': '6a9129bf-3c21-4f7c-9f9a-6e17d2ec4efb',
+
+        'g_state': '{"i_l":0,"i_ll":1770238012060,"i_b":"3XbFDcHczeTuuEcP9ywPehQsg+szzBpyv+Pm+y4sHV8","i_e":{"enable_itp_optimization":15}}'
+    }
+    #
+    # response = requests.get(url, headers=headers, cookies=cookies)
+    #
+    # print(f"Status Code: {response.status_code}")
+    # print(f"Response: {response.text}")
+
+    from curl_cffi import requests
+    import json
+
+    url = "https://www.jobleads.com/api/v2/search/v2/facets"
+
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "accept-language": "en-US,en;q=0.9",
+        # "authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9....",  # keep full token
+        "content-type": "application/json",
+        "origin": "https://www.jobleads.com",
+        "referer": "https://www.jobleads.com/search/jobs?location_country=BHR&minSalary=14000&maxSalary=-1&filter_by_daysReleased=31&location_radius=50",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "x-requested-with": "XMLHttpRequest",
+    }
+
+    cookies = {
+        "locale": "en_PK",
+        "cookie_version": "1.1",
+        "jlst": "1f0ffaa5-4f50-6398-8660-0dd9927f615c",
+        # "__Host-csrf": "6a9129bf-3c21-4f7c-9f9a-6e17d2ec4efb",
+        # "prodsid": "2l92h60bplv3kca5pg4oq0eq2l",
+    }
+
+    payload = {
+        "keywords": "",
         "location": "",
-        "country": "NLD",
+        "country": "BHR",
         "radius": 0,
-        "minSalary": 40000,
+        "minSalary": 14000,
         "maxSalary": -1,
-        "initialSearchId": 0,
-        "refinedSearchId": 0,
+        # "initialSearchId": 360585065,
+        # "refinedSearchId": 66434204,
         "lastExecutedSearch": None,
         "searchFiltering": 0,
         "featuredJobs": "",
@@ -639,73 +816,19 @@ if __name__ == "__main__":
         "savedSearchId": None,
         "startIndex": 0,
         "limit": 25,
-        "filters": {},
+        "filters": {
+            "daysReleased": "31"
+        }
     }
 
-    # print("=== CLASSIC SEARCH ===")
-    # for job in iter_classic_search(client, classic_payload, classic_headers):
-    #     print(job.get("id"), job.get("title"))
-    #
-    # # ---------- Semantic Search ----------
-    # print("\n=== SEMANTIC SEARCH ===")
-    # semantic_result = semantic_search(
-    #     client,
-    #     keywords=["python"],
-    #     country_alpha2="NL",
-    #     min_salary=40000,
-    #     valid_from_ts=1769764856,
-    #     limit=100,
-    # )
-    #
-    # print(json.dumps(semantic_result, indent=2)[:1500])
+    response = requests.post(
+        url,
+        headers=headers,
+        cookies=cookies,
+        json=payload,
+        impersonate="chrome123",  # 🔥 critical
+        timeout=30
+    )
 
-
-
-
-    job_id = "ee309af7f1f24849f11fcbc23692b7c7a"
-
-    details = client.get_job_details(job_id)
-    print(json.dumps(details, indent=2))
-    job_content = details.get('payload',{}).get('content',{})
-    canonical_url = job_content.get('canonicalUrl',"")
-    _url = f"https://www.jobleads.com/{canonical_url.lstrip('/')}"
-    # canonical_url = "https://www.jobleads.com/nl/job/python-developer--amsterdam--eeaccebf11c0e0a0445a8c9b860a03f22"
-    _scraped_page = client.fetch_job_page_html(_url)
-    jsonld = client.extract_jobposting_jsonld(_scraped_page)
-    normalized = client.normalize_jobposting(jsonld)
-    job_content['job_description'] = normalized
-    print(normalized)
-
-
-
-
-    """
-    ✅ What you now have
-	•	🔐 Correct split-JWT auth (browser-accurate)
-	•	🔁 Auto refresh
-	•	📄 Classic paginated search
-	•	🧠 Semantic / vector (VDB) search
-	•	🧱 Clean separation of concerns
-	•	🚀 Ready for scale / scraping / pipelines
-
-⸻
-
-If you want next:
-	•	unify both searches into one merged result set
-	•	deduplicate classic vs semantic jobs
-	•	async / parallel searches
-	•	export to DB / CSV / Parquet
-    """
-
-
-    # -----------------------------
-    # Job Detail API
-    # -----------------------------
-
-
-
-    # job_id = "ee309af7f1f24849f11fcbc23692b7c7a"
-    #
-    # details = client.get_job_details(job_id)
-    #
-    # print(json.dumps(details, indent=2))
+    print(response.status_code)
+    print(response.json())

@@ -1,6 +1,8 @@
+fastapi
+uvicorn
+sqlmodel
 scrapy
 redis
-supabase
 python-dotenv
 prometheus_client
 pyyaml
@@ -8,3 +10,5 @@ psycopg2-binary
 croniter
 aiohttp
 requests
+curl_cffi
+beautifulsoup4

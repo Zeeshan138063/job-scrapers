@@ -4,11 +4,6 @@ import os
 from abc import abstractmethod
 from datetime import datetime
 from typing import Dict, List, Optional
-from supabase import create_client
-
-from supabase import create_client
-
-
 
 class BaseJobSpider(scrapy.Spider):
     """
@@ -34,31 +29,18 @@ class BaseJobSpider(scrapy.Spider):
         self.logger.info(f"Initialized {self.name} with config: {self.config}")
     
     def _load_config(self) -> Dict:
-        """Load spider configuration from Supabase (preferred) or YAML (fallback)"""
-        # Try Supabase first
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_KEY')
-        
-        if supabase_url and supabase_key:
-            try:
-                client = create_client(supabase_url, supabase_key)
-                response = client.table('scraper_spider_configs').select('*').eq('spider_id', self.name).execute()
-                if response.data:
-                    db_config = response.data[0]
-                    self.logger.info(f"Loaded config from Supabase for {self.name}")
-                    return db_config
-            except Exception as e:
-                self.logger.error(f"Failed to load config from Supabase: {e}")
-
-        # Fallback to YAML
+        """Load spider configuration from YAML (fallback)"""
+        # Fallback to YAML (Supabase logic removed)
         config_path = os.getenv('SPIDER_CONFIG_PATH', '/app/config/spiders.yml')
         try:
-            with open(config_path, 'r') as f:
-                all_configs = yaml.safe_load(f)
-                return all_configs.get(self.config_key, {})
-        except FileNotFoundError:
-            self.logger.warning(f"Config file not found: {config_path}, using defaults")
-            return {}
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    all_configs = yaml.safe_load(f)
+                    return all_configs.get(self.config_key, {}) if self.config_key else {}
+        except Exception as e:
+            self.logger.warning(f"Could not load local config: {e}")
+        
+        return {}
     
     def _get_arg_or_config(self, key: str, default):
         """Get value from spider args or config file"""
