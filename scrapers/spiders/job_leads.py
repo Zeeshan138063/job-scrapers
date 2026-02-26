@@ -16,6 +16,8 @@ from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
 from scrapers.items import JobItem
 from scrapers.utils.credential_manager import CredentialManager
+from scrapers.utils.config_loader import ConfigLoader
+
 
 
 class InvalidCredentialsError(Exception):
@@ -663,14 +665,28 @@ class JobLeadsSpider(scrapy.Spider):
         self.cm = CredentialManager(creds_file)
         self.configs = self.cm.get_configs_for_startup(self.country_arg)
 
+        # Load dynamic configurations from database
+        self.config_loader = ConfigLoader()
+        self.db_config = self.config_loader.get_spider_config("jobleads")
+        
+        self.search_queries = self.db_config.get("search_queries") or ["Software Engineer", "Developer", "Data Scientist", "Manager", "Analyst"]
+        self.locations = self.db_config.get("locations") or []
+        
+        self.logger.info(f"⚙️ Loaded search queries: {self.search_queries}")
+        self.logger.info(f"⚙️ Loaded locations: {self.locations}")
+
     def _mark_credentials_invalid(self, country_code: str, email: str, reason: str = "blocked"):
         self.cm.mark_blocked(country_code, email, reason)
 
     def start_requests(self):
         if not self.configs:
-            self.logger.error("No configurations loaded. Check jobleads_creds.json")
+            self.logger.warning("⚠️ No valid (non-blocked) configurations found to start. If you want to run a specific country, ensure its credentials are not blocked in jobleads_creds.json.")
             return
 
+        total_countries = len(self.cm.creds)
+        active_countries = len(self.configs)
+        self.logger.info(f"🚀 Starting scraper for {active_countries}/{total_countries} countries from credentials file.")
+        
         for config in self.configs:
             country = config['country_code']
             country_name = config.get('country_name')
@@ -712,32 +728,59 @@ class JobLeadsSpider(scrapy.Spider):
             self._mark_credentials_invalid(country, client.email, "mid_crawl_auth_failure")
             return
         
-        payload = {
-            "country": country, 
-            "maxSalary": -1, 
-            "startIndex": 0, 
-            "limit": self.limit or 25, 
-            "filters": {"daysReleased": "1"}
-        }
+        # Determine search queries and locations to use
+        # If DB has locations, we might want to iterate them, but JobLeads API allows 'country' filter.
+        # Let's use search queries.
+        
+        for query in self.search_queries:
+            payload = {
+                "country": country, 
+                "maxSalary": -1, 
+                "startIndex": 0, 
+                "limit": self.limit or 25, 
+                "filters": {"daysReleased": "1"},
+                "query": query
+            }
+            # Add locations if available
+            if self.locations:
+                for loc in self.locations:
+                    loc_payload = payload.copy()
+                    loc_payload["location"] = loc
+                    yield self._make_search_request(client, country, country_name, loc_payload, query, loc)
+            else:
+                yield self._make_search_request(client, country, country_name, payload, query)
+
+    def _make_search_request(self, client, country, country_name, payload, query, location=None):
         headers = {
             "accept": "application/json", 
             "content-type": "application/json", 
             "user-agent": "Mozilla/5.0",
             "authorization": f"Bearer {client.token}"
         }
-
-        yield scrapy.Request(
+        loc_str = f" in {location}" if location else ""
+        self.logger.info(f"🔎 Searching for '{query}'{loc_str} in {country}")
+        
+        return scrapy.Request(
             url="https://www.jobleads.com/api/v2/search/v2",
             method="POST",
             body=json.dumps(payload),
             headers=headers,
             callback=self.parse_search_results,
-            cb_kwargs={'client': client, 'country': country, 'country_name': country_name, 'headers': headers, 'payload': payload, 'count': 0},
+            cb_kwargs={
+                'client': client, 
+                'country': country, 
+                'country_name': country_name, 
+                'headers': headers, 
+                'payload': payload, 
+                'count': 0,
+                'query': query,
+                'location': location
+            },
             meta={'use_curl_cffi': True},
             dont_filter=True
         )
 
-    def parse_search_results(self, response, client, country, country_name, headers, payload, count):
+    def parse_search_results(self, response, client, country, country_name, headers, payload, count, query, location=None):
         try:
             data = json.loads(response.text)
             jobs = data.get("jobs") or data.get("resultList") or []
@@ -788,7 +831,16 @@ class JobLeadsSpider(scrapy.Spider):
                     body=json.dumps(new_payload),
                     headers=headers,
                     callback=self.parse_search_results,
-                    cb_kwargs={'client': client, 'country': country, 'country_name': country_name, 'headers': headers, 'payload': new_payload, 'count': count},
+                    cb_kwargs={
+                        'client': client, 
+                        'country': country, 
+                        'country_name': country_name, 
+                        'headers': headers, 
+                        'payload': new_payload, 
+                        'count': count,
+                        'query': query,
+                        'location': location
+                    },
                     meta={'use_curl_cffi': True},
                     dont_filter=True
                 )
