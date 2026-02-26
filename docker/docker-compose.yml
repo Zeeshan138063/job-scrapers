@@ -1,44 +1,6 @@
 name: job-scraper
 
 services:
-  # 1. PostgreSQL Staging Database
-  db:
-    image: postgres:16-alpine
-    platform: linux/amd64
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - scraper_net
-
-  # 2. Redis queue & cache
-  redis:
-    image: redis:alpine
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - scraper_net
-
-  # 3. Redis gui
-  redis-insight:
-    image: redis/redisinsight:latest
-    platform: linux/amd64
-    ports:
-      - "${REDIS_INSIGHT_PORT:-5540}:5540"
-    volumes:
-      - redis_insight_data:/data
-    networks:
-      - scraper_net
-    depends_on:
-      - redis
 
   # 4. Scraper API (FastAPI + SQLModel)
   scraper-api:
@@ -55,8 +17,8 @@ services:
       - ..:/app
     networks:
       - scraper_net
-    depends_on:
-      - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # 5. Main scraper worker
   scraper-worker:
@@ -64,7 +26,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.scraper
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=${REDIS_URL}
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=INFO
       - PROMETHEUS_PORT=9410
@@ -73,33 +35,10 @@ services:
       - ..:/app
     networks:
       - scraper_net
-    depends_on:
-      - redis
-      - db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # 6. Prometheus metrics
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "${PROMETHEUS_PORT:-9091}:9090"
-    volumes:
-      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ../prometheus/alerts.yml:/etc/prometheus/alerts.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    networks:
-      - scraper_net
-
-  # 7. Grafana dashboard
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "${GRAFANA_PORT:-3100}:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - scraper_net
+  # 7. Grafana dashboard - REMOVED
 
   # 8. Admin dashboard
   dashboard:
@@ -115,32 +54,7 @@ services:
     networks:
       - scraper_net
 
-  # 9. pgAdmin for DB management
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    platform: linux/amd64
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - scraper_net
-    depends_on:
-      - db
-
-volumes:
-  postgres_data:
-  redis_data:
-  redis_insight_data:
-  prometheus_data:
-  grafana_data:
-  pgadmin_data:
-
+volumes: {}
 
 networks:
   scraper_net:

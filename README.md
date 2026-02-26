@@ -8,7 +8,6 @@ A scalable, distributed job board scraping system built with **Scrapy** and **Cr
 - **Rendering Engine**: Crawl4AI (Playwright/Chromium)
 - **Queue & Deduplication**: Redis
 - **Storage**: Supabase (PostgreSQL)
-- **Monitoring**: Prometheus & Grafana
 - **Configuration**: Dynamic DB-driven configs + Admin UI
 
 ## 🚀 Quick Start
@@ -30,7 +29,6 @@ Edit `.env` and add your credentials:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-service-role-key
 REDIS_URL=redis://redis:6379
-PROMETHEUS_PORT=9410
 LOG_LEVEL=INFO
 ```
 
@@ -42,7 +40,7 @@ Run the SQL migrations in your Supabase SQL Editor:
 4. `migrations/supabase/007_add_filters_to_configs.sql` (New: Support for extra filters)
 
 ### 4. Run with Docker
-Start the entire stack (Worker, Redis, Prometheus, Grafana):
+Start the stack (Worker, Redis):
 
 ```bash
 cd docker
@@ -69,16 +67,10 @@ Manage scraper status, schedules, and concurrency dynamically.
 - Open `admin-dashboard/index.html` in your browser.
 - Enter your Supabase URL & Key.
 
-### Grafana (Monitoring)
-View real-time metrics (Items scraped, Error rates, Latency).
-- URL: `http://localhost:3100`
-- Login: `admin` / `admin` (default)
-- **Setup**:
-    1. Go to **Configuration** > **Data Sources** > **Add data source**.
-    2. Select **Prometheus**.
-    3. URL: `http://prometheus:9090`.
-    4. Save & Test.
-    5. Import dashboard from `grafana/dashboards/scraper_overview.json`.
+### Scraper Admin UI
+Manage scraper status, schedules, and concurrency dynamically.
+- Open `admin-dashboard/index.html` in your browser.
+- Enter your Supabase URL & Key.
 
 ### pgAdmin (Database GUI)
 Manage the local PostgreSQL database via a web interface.

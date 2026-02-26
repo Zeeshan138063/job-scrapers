@@ -51,11 +51,13 @@ class FilterOption(SQLModel, table=True):
 class JobListing(SQLModel, table=True):
     __tablename__ = "scraper_job_listings"
     
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[str] = Field(default=None, primary_key=True)
     source: str
     external_id: Optional[str] = None
+    source_domain: Optional[str] = None
     title: str
-    company: str
+    company_name: Optional[str] = None
+    country_name: Optional[str] = None
     location: Optional[str] = None
     location_city: Optional[str] = None
     location_state: Optional[str] = None
@@ -64,15 +66,30 @@ class JobListing(SQLModel, table=True):
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     salary_currency: Optional[str] = None
+    salary_period: Optional[str] = None
     description: Optional[str] = None
+    description_short: Optional[str] = None
+    description_html: Optional[str] = None
+    description_text: Optional[str] = None
     url: str
+    source_url: Optional[str] = None
     posted_at: Optional[datetime] = None
-    job_type: Optional[str] = None
-    remote: bool = Field(default=False)
+    employment_type: Optional[str] = None
+    remote_modality: Optional[str] = None
     experience_level: Optional[str] = None
     scraped_at: datetime = Field(default_factory=datetime.utcnow)
     dedup_hash: str = Field(unique=True, index=True)
+    
+    # Structured Data (JSON)
+    benefits: Dict = Field(default={}, sa_column=Column(JSON))
+    qualifications: Dict = Field(default={}, sa_column=Column(JSON))
+    responsibilities: Dict = Field(default={}, sa_column=Column(JSON))
+    education: Dict = Field(default={}, sa_column=Column(JSON))
+    tools: Dict = Field(default={}, sa_column=Column(JSON))
+    meta_flags: Dict = Field(default={}, sa_column=Column(JSON))
+    
     skills: List[str] = Field(default=[], sa_column=Column(ARRAY(String)))
+    hostname_origin: Optional[str] = None
     is_active: bool = Field(default=True)
     
     # Staging meta
@@ -86,6 +103,7 @@ class SpiderRun(SQLModel, table=True):
     spider_name: str
     status: str # running, completed, failed
     duration_seconds: Optional[float] = None
+    human_duration: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
     items_scraped: int = Field(default=0)

@@ -14,7 +14,7 @@ from .models import JobListing, SpiderConfig, SpiderRun, ScrapeRequest
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://scraper_user:scraper_pass@db:5432/scraper_staging")
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 API_SECRET_KEY = os.getenv("API_SECRET_KEY", "your-super-secret-key-123")
 
 import re
@@ -54,7 +54,7 @@ async def get_api_key(api_key: str = Security(api_key_header)):
 
 app = FastAPI(
     title="Job Scraper Staging API",
-    dependencies=[Depends(get_api_key)]
+    # dependencies=[Depends(get_api_key)]
 )
 
 # CORS Configuration
@@ -86,7 +86,9 @@ def list_jobs(
     offset: int = 0,
     limit: int = 100,
     source: Optional[str] = None,
-    query: Optional[str] = None,
+    query: Optional[str] = None, # Assuming 'query' is the existing title filter
+    company_name: Optional[str] = None, # Added based on snippet
+    country_name: Optional[str] = None, # Added based on snippet
     location: Optional[str] = None,
     company: Optional[str] = None,
     session: Session = Depends(get_session)
@@ -100,6 +102,10 @@ def list_jobs(
         statement = statement.where(JobListing.location.ilike(f"%{location}%"))
     if company:
         statement = statement.where(JobListing.company.ilike(f"%{company}%"))
+    if company_name:
+        statement = statement.where(JobListing.company_name.ilike(f"%{company_name}%"))
+    if country_name:
+        statement = statement.where(JobListing.country_name.ilike(f"%{country_name}%"))
     
     jobs = session.exec(statement.order_by(JobListing.scraped_at.desc()).offset(offset).limit(limit)).all()
     return jobs

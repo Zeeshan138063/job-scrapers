@@ -54,10 +54,28 @@ class PostgresPipeline:
                 if existing:
                     # Update fields
                     existing.title = item['title']
-                    existing.company = item['company']
+                    existing.company_name = item.get('company_name') or item.get('company')
+                    existing.country_name = item.get('country_name')
                     existing.location = item.get('location')
-                    existing.salary_raw = item.get('salary')
+                    existing.salary_raw = item.get('salary') or item.get('salary_raw')
+                    existing.salary_min = item.get('salary_min')
+                    existing.salary_max = item.get('salary_max')
+                    existing.salary_currency = item.get('salary_currency')
+                    existing.salary_period = item.get('salary_period')
                     existing.description = item.get('description')
+                    existing.description_short = item.get('description_short')
+                    existing.description_html = item.get('description_html')
+                    existing.description_text = item.get('description_text')
+                    existing.employment_type = item.get('employment_type')
+                    existing.remote_modality = item.get('remote_modality')
+                    existing.source_url = item.get('source_url')
+                    existing.benefits = item.get('benefits', {})
+                    existing.qualifications = item.get('qualifications', {})
+                    existing.responsibilities = item.get('responsibilities', {})
+                    existing.education = item.get('education', {})
+                    existing.tools = item.get('tools', {})
+                    existing.meta_flags = item.get('meta_flags', {})
+                    existing.hostname_origin = item.get('hostname_origin')
                     existing.scraped_at = item.get('scraped_at')
                     session.add(existing)
                     self.stats['updated'] += 1
@@ -66,15 +84,34 @@ class PostgresPipeline:
                     job = JobListing(
                         source=item['source'],
                         external_id=item.get('external_id'),
+                        source_domain=item.get('source_domain'),
                         title=item['title'],
-                        company=item['company'],
+                        company_name=item.get('company_name') or item.get('company'),
+                        country_name=item.get('country_name'),
                         location=item.get('location'),
                         location_city=item.get('location_parsed', {}).get('city'),
                         location_state=item.get('location_parsed', {}).get('state'),
                         location_country=item.get('location_parsed', {}).get('country'),
-                        salary_raw=item.get('salary'),
+                        salary_raw=item.get('salary') or item.get('salary_raw'),
+                        salary_min=item.get('salary_min'),
+                        salary_max=item.get('salary_max'),
+                        salary_currency=item.get('salary_currency'),
+                        salary_period=item.get('salary_period'),
                         url=item['url'],
+                        source_url=item.get('source_url'),
+                        employment_type=item.get('employment_type'),
+                        remote_modality=item.get('remote_modality'),
                         description=item.get('description'),
+                        description_short=item.get('description_short'),
+                        description_html=item.get('description_html'),
+                        description_text=item.get('description_text'),
+                        benefits=item.get('benefits', {}),
+                        qualifications=item.get('qualifications', {}),
+                        responsibilities=item.get('responsibilities', {}),
+                        education=item.get('education', {}),
+                        tools=item.get('tools', {}),
+                        meta_flags=item.get('meta_flags', {}),
+                        hostname_origin=item.get('hostname_origin'),
                         dedup_hash=item['dedup_hash'],
                         scraped_at=item.get('scraped_at'),
                     )

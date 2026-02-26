@@ -1,0 +1,44 @@
+{
+    "ARG": {
+        "email": "fitati9373@newtrea.com",
+        "password": "Pakistan5@x",
+        "country_name": "Argentina",
+        "country_code": "ARG",
+        "is_blocked": true,
+        "block_reason": "invalid_credentials",
+        "blocked_at": "Thu Feb 26 10:32:38 AM PKT 2026"
+    },
+    "AUS": {
+        "email": "bsz47@edumail.me",
+        "password": "Pakistan5@",
+        "country_name": "Australia",
+        "country_code": "AUS"
+    },
+    "AUT": {
+        "email": "xagirot190@manupay.com",
+        "password": "Pakistan5@",
+        "country_name": "Austria",
+        "country_code": "AUT"
+    },
+    "BHR": {
+        "email": "hamados968@esyline.com",
+        "password": "Pakistan5@z",
+        "country_name": "Bahrain",
+        "country_code": "BHR",
+        "is_blocked": true,
+        "block_reason": "invalid_credentials",
+        "blocked_at": "Thu Feb 26 10:32:40 AM PKT 2026"
+    },
+    "BEL": {
+        "email": "berapec475@ixunbo.com",
+        "password": "Berapec475@ixunbo.com",
+        "country_name": "Belgium",
+        "country_code": "BEL"
+    },
+    "USA": {
+        "email": "braem@edumail.me",
+        "password": "Pakistan5@",
+        "country_name": "United States",
+        "country_code": "USA"
+    }
+}

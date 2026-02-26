@@ -23,7 +23,8 @@ class DeduplicationPipeline:
     def from_crawler(cls, crawler):
         return cls(
             redis_url=crawler.settings.get('REDIS_URL', 'redis://localhost:6379'),
-            ttl_days=crawler.settings.get('DEDUP_TTL_DAYS', 30),
+            ttl_days=
+            crawler.settings.get('DEDUP_TTL_DAYS', 30),
             crawler=crawler
         )
     
@@ -42,7 +43,7 @@ class DeduplicationPipeline:
         if self.redis_client:
             self.redis_client.close()
     
-    def process_item(self, item):
+    def process_item(self, item, spider):
         """Check if item already exists"""
         
         # Create unique hash
@@ -53,14 +54,19 @@ class DeduplicationPipeline:
         spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
         redis_key = f"scraped_jobs:{spider_name}"
         
-        if self.redis_client.sismember(redis_key, dedup_hash):
-            self.stats['duplicates'] += 1
-            logger.debug(f"Duplicate: {item['title']} from {item['company']}")
-            raise DropItem(f"Duplicate item: {dedup_key}")
-        
-        # Add to set with TTL
-        self.redis_client.sadd(redis_key, dedup_hash)
-        self.redis_client.expire(redis_key, self.ttl_days * 24 * 60 * 60)
+        try:
+            if self.redis_client.sismember(redis_key, dedup_hash):
+                self.stats['duplicates'] += 1
+                logger.debug(f"Duplicate: {item['title']} from {item['company']}")
+                raise DropItem(f"Duplicate item: {dedup_key}")
+            
+            # Add to set with TTL
+            self.redis_client.sadd(redis_key, dedup_hash)
+            self.redis_client.expire(redis_key, self.ttl_days * 24 * 60 * 60)
+        except redis.exceptions.ConnectionError:
+            logger.warning("Redis connection failed. Skipping deduplication.")
+        except Exception as e:
+            logger.warning(f"Deduplication error: {e}")
         
         # Store hash in item for database
         item['dedup_hash'] = dedup_hash

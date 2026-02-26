@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Load .env file from the current directory (scrapers/)
+load_dotenv()
 
 # Scrapy settings for job_scraper project
 BOT_NAME = 'job_scraper'
@@ -37,9 +41,8 @@ DOWNLOADER_MIDDLEWARES = {
     'scrapers.middlewares.crawl4ai_middleware.Crawl4AIDownloaderMiddleware': 585,
 }
 
-# Enable or disable extensions
 EXTENSIONS = {
-    'scrapers.extensions.prometheus_exporter.PrometheusStatsExtension': 500,
+    'scrapers.extensions.spider_run_stats.SpiderRunStatsExtension': 500,
 }
 
 # Configure item pipelines (order matters!)
@@ -47,8 +50,13 @@ ITEM_PIPELINES = {
     'scrapers.pipelines.validation_pipeline.ValidationPipeline': 100,
     'scrapers.pipelines.deduplication_pipeline.DeduplicationPipeline': 200,
     'scrapers.pipelines.enrichment_pipeline.EnrichmentPipeline': 300,
-    'scrapers.pipelines.postgres_pipeline.PostgresPipeline': 400,
+    # 'scrapers.pipelines.postgres_pipeline.PostgresPipeline': 400,
+    'scrapers.pipelines.supabase_pipeline.SupabasePipeline': 500,
 }
+
+# Supabase Settings
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 
 # Enable AutoThrottle extension
 AUTOTHROTTLE_ENABLED = True
@@ -74,12 +82,11 @@ LOG_FORMAT = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
 LOG_DATEFORMAT = '%Y-%m-%d %H:%M:%S'
 
 # Environment variables
-REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379')
-DATABASE_URL = os.getenv('DATABASE_URL')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
+# Default to localhost if db (docker) is not reachable
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://scraper_user:scraper_pass@localhost:5432/scraper_staging')
 
-# Prometheus settings
-PROMETHEUS_ENABLED = True
-PROMETHEUS_PORT = int(os.getenv('PROMETHEUS_PORT', 9410))
+# Prometheus settings - REMOVED
 
 # Deduplication settings
 DEDUP_TTL_DAYS = int(os.getenv('DEDUP_TTL_DAYS', 30))

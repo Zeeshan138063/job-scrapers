@@ -46,7 +46,7 @@ class TestEnrichmentPipeline(unittest.TestCase):
 
     def test_salary_parsing(self):
         item = {'salary': '$100,000 - $120,000 a year'}
-        processed = self.pipeline.process_item(item, self.spider)
+        processed = self.pipeline.process_item(item)
         normalized = processed['salary_normalized']
         
         self.assertEqual(normalized['min'], 100000)
@@ -55,7 +55,7 @@ class TestEnrichmentPipeline(unittest.TestCase):
 
     def test_hourly_salary(self):
         item = {'salary': '$50 - $60 an hour'}
-        processed = self.pipeline.process_item(item, self.spider)
+        processed = self.pipeline.process_item(item)
         normalized = processed['salary_normalized']
         
         # 50 * 40 * 52 = 104000
@@ -64,7 +64,7 @@ class TestEnrichmentPipeline(unittest.TestCase):
 
     def test_location_parsing(self):
         item = {'location': 'New York, NY, USA'}
-        processed = self.pipeline.process_item(item, self.spider)
+        processed = self.pipeline.process_item(item)
         parsed = processed['location_parsed']
         
         self.assertEqual(parsed['city'], 'New York')
@@ -73,7 +73,7 @@ class TestEnrichmentPipeline(unittest.TestCase):
 
     def test_skill_extraction(self):
         item = {'description': 'We need Python and React experts using AWS.'}
-        processed = self.pipeline.process_item(item, self.spider)
+        processed = self.pipeline.process_item(item)
         
         self.assertIn('python', processed['skills'])
         self.assertIn('react', processed['skills'])

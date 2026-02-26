@@ -8,7 +8,7 @@ from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
 from sqlmodel import Session, create_engine, select
 from api.models import SpiderConfig, SpiderRun, JobListing
-from prometheus_client import start_http_server, CollectorRegistry, multiprocess
+# from prometheus_client import start_http_server, CollectorRegistry, multiprocess - REMOVED
 from croniter import croniter
 from datetime import datetime
 
@@ -96,20 +96,28 @@ class Scheduler:
                 # unless we want "Run on Startup" logic.
                 # User wants "schedule a job on scraper it should act".
                 # Let's verify if current time matches cron.
-                if croniter.match(cron_schedule, now):
-                    should_run = True
+                try:
+                    if croniter.match(cron_schedule, now):
+                        should_run = True
+                except Exception as e:
+                    logger.error(f"Error matching schedule for {spider_id} (cron: {cron_schedule}): {e}")
+                    should_run = False
                 else:
                     # just mark seen
                     pass
             else:
                 # Check if we passed a schedule point since last run
                 # croniter get_next from last_run
-                last_run_dt = datetime.fromtimestamp(float(last_run_ts))
-                iter = croniter(cron_schedule, last_run_dt)
-                next_run = iter.get_next(datetime)
-                
-                if next_run <= now:
-                    should_run = True
+                try:
+                    last_run_dt = datetime.fromtimestamp(float(last_run_ts))
+                    iter = croniter(cron_schedule, last_run_dt)
+                    next_run = iter.get_next(datetime)
+                    
+                    if next_run <= now:
+                        should_run = True
+                except Exception as e:
+                    logger.error(f"Error checking schedule for {spider_id} (cron: {cron_schedule}): {e}")
+                    should_run = False
             
             if should_run:
                 await self.schedule_job(config)
@@ -151,14 +159,7 @@ class ScrapingWorker:
     async def run(self):
         await self.connect()
         
-        # Start Prometheus Metrics Server (Multiprocess Mode)
-        if 'PROMETHEUS_MULTIPROC_DIR' in os.environ:
-            registry = CollectorRegistry()
-            multiprocess.MultiProcessCollector(registry)
-            start_http_server(9410, registry=registry)
-            logger.info("Prometheus metrics server started on port 9410")
-        else:
-            logger.warning("PROMETHEUS_MULTIPROC_DIR not set. Metrics will not be aggregated.")
+        # Start Prometheus Metrics Server - REMOVED
 
         # Start Scheduler with local Postgres engine
         scheduler = Scheduler(self.redis_client, engine)

@@ -10,13 +10,17 @@ class ValidationPipeline:
     Fail-fast pattern
     """
     
-    REQUIRED_FIELDS = ['title', 'company', 'url', 'source']
+    REQUIRED_FIELDS = ['title', 'url', 'source']
     
-    def process_item(self, item):
+    def process_item(self, item, spider=None):
         """Validate required fields and clean data"""
         
         # Check required fields
         missing = [field for field in self.REQUIRED_FIELDS if not item.get(field)]
+        
+        # Special check for company/company_name
+        if not item.get('company') and not item.get('company_name'):
+            missing.append('company/company_name')
         
         if missing:
             raise DropItem(f"Missing required fields: {missing} in {item.get('url', 'unknown')}")

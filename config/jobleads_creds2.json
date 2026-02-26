@@ -1,0 +1,212 @@
+{
+    "ARG": {
+        "email": "fitati9373@newtrea.com",
+        "password": "Pakistan5@x",
+        "country_name": "Argentina"
+    },
+    "AUS": {
+        "email": "bsz47@edumail.me",
+        "password": "Pakistan5@",
+        "country_name": "Australia"
+    },
+    "AUT": {
+        "email": "xagirot190@manupay.com",
+        "password": "Pakistan5@",
+        "country_name": "Austria"
+    },
+    "BHR": {
+        "email": "hamados968@esyline.com",
+        "password": "Pakistan5@z",
+        "country_name": "Bahrain"
+    },
+    "BEL": {
+        "email": "berapec475@ixunbo.com",
+        "password": "Berapec475@ixunbo.com",
+        "country_name": "Belgium"
+    },
+    "BRA": {
+        "email": "braem@edumail.me",
+        "password": "Pakistan5@",
+        "country_name": "Brazil"
+    }
+//    "CAN": {
+//         "email": "fitati9373@newtrea.com",
+//        "password": "Pakistan5@",
+//        "country_name": "Canada"
+//    },
+//    "CHL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Chile"
+//    },
+//    "COL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Colombia"
+//    },
+//    "DNK": {
+//         "email": "hamados968@esyline.com",
+//        "password": "Pakistan5@",
+//        "country_name": "Denmark"
+//    },
+//    "FIN": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Finland"
+//    },
+//    "FRA": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "France"
+//    },
+//    "DEU": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Germany"
+//    },
+//    "HKG": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Hong Kong"
+//    },
+//    "IND": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "India"
+//    },
+//    "IDN": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Indonesia"
+//    },
+//    "IRL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Ireland"
+//    },
+//    "ITA": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Italy"
+//    },
+//    "KWT": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Kuwait"
+//    },
+//    "MYS": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Malaysia"
+//    },
+//    "MEX": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Mexico"
+//    },
+//    "NLD": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Netherlands"
+//    },
+//    "NZL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "New Zealand"
+//    },
+//    "NOR": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Norway"
+//    },
+//    "OMN": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Oman"
+//    },
+//    "PAK": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Pakistan"
+//    },
+//    "PER": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Peru"
+//    },
+//    "PHL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Philippines"
+//    },
+//    "POL": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Poland"
+//    },
+//    "PRT": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Portugal"
+//    },
+//    "QAT": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Qatar"
+//    },
+//    "SAU": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Saudi Arabia"
+//    },
+//    "SGP": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Singapore"
+//    },
+//    "ZAF": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "South Africa"
+//    },
+//    "ESP": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Spain"
+//    },
+//    "SWE": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Sweden"
+//    },
+//    "CHE": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Switzerland"
+//    },
+//    "TUR": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Turkey"
+//    },
+//    "ARE": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "United Arab Emirates"
+//    },
+//    "GBR": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "United Kingdom"
+//    },
+//    "VEN": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "Venezuela"
+//    },
+//     "USA": {
+//        "email": "berapec475@ixunbo.com",
+//        "password": "Berapec475@ixunbo.com",
+//        "country_name": "United States"
+//    }
+}
