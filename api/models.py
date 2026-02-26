@@ -16,9 +16,8 @@ class SpiderConfig(SQLModel, table=True):
     max_pages: int = Field(default=5)
     
     # Performance / Scrapy Settings
-    concurrent_requests: int = Field(default=2)
-    download_delay: float = Field(default=2.0)
     use_crawl4ai: bool = Field(default=False)
+    retry_on_auth_failure: bool = Field(default=True)
     
     filters: Dict = Field(default={}, sa_column=Column(JSON))
     updated_at: datetime = Field(default_factory=datetime.utcnow)

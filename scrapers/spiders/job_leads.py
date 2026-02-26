@@ -148,13 +148,29 @@ class JobleadsClient:
 
         r = self.s.request(method, url, headers=hdrs, impersonate=self.impersonate, **kwargs, )
 
-        if retry and r.status_code in (401, 403):
-            self.token = None
-            self.exp = 0
-            self.refresh_if_needed(0)
-            hdrs["authorization"] = f"Bearer {self.token}"
-
-            r = self.s.request(method, url, headers=hdrs, impersonate=self.impersonate, **kwargs, )
+        if r.status_code in (401, 403):
+            if retry:
+                logger.info(f"Auth failure ({r.status_code}) for {self.email}. Attempting token refresh...")
+                self.token = None
+                self.exp = 0
+                try:
+                    self.refresh_if_needed(0)
+                except (InvalidCredentialsError, AccountBlockedError):
+                    # These were likely raised in login_and_get_token during refresh
+                    raise
+                except Exception as e:
+                    logger.error(f"Refresh failed during mid-crawl request: {e}")
+                    raise AuthServiceError(f"Refresh failed: {e}")
+                
+                hdrs["authorization"] = f"Bearer {self.token}"
+                r = self.s.request(method, url, headers=hdrs, impersonate=self.impersonate, **kwargs, )
+                
+                if r.status_code in (401, 403):
+                    logger.error(f"Permanent auth failure ({r.status_code}) for {self.email} after refresh.")
+                    raise AccountBlockedError(f"Account rejected after refresh: {r.status_code}")
+            else:
+                logger.error(f"Auth failure ({r.status_code}) for {self.email} (Retries disabled).")
+                raise AccountBlockedError(f"Auth failure without retry: {r.status_code}")
 
         return r
 
@@ -888,7 +904,7 @@ class JobLeadsSpider(scrapy.Spider):
         item_dict['country_name'] = country_name
         yield JobItem(**item_dict)
 #
-if __name__ == "__main__":
-    process = CrawlerProcess(get_project_settings())
-    process.crawl(JobLeadsSpider, country="USA")
-    process.start()
+# if __name__ == "__main__":
+#     process = CrawlerProcess(get_project_settings())
+#     process.crawl(JobLeadsSpider, country="USA")
+#     process.start()

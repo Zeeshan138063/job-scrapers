@@ -30,6 +30,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=INFO
       - PROMETHEUS_PORT=9410
+      - JOBLEADS_SCHEDULE=${JOBLEADS_SCHEDULE:-0 */6 * * *}
     volumes:
       - ../config:/app/config
       - ..:/app
