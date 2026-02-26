@@ -44,27 +44,41 @@ class DeduplicationPipeline:
             self.redis_client.close()
     
     def process_item(self, item, spider):
-        """Check if item already exists"""
+        """Check if item already exists using a composite key"""
         
-        # Create unique hash
-        dedup_key = f"{item['source']}:{item['external_id']}"
+        # 1. Collect components for the composite key
+        external_id = str(item.get('external_id', ''))
+        title = str(item.get('title', '')).lower().strip()
+        
+        # Location components (depending on item fields)
+        region = str(item.get('region') or item.get('location_parsed', {}).get('state', '')).lower().strip()
+        country = str(item.get('country_name') or item.get('location_country') or item.get('country_code', '')).lower().strip()
+        
+        # 2. Create unique hash based on composite key
+        # Format: source:id:title:region:country
+        dedup_key = f"{item['source']}:{external_id}:{title}:{region}:{country}"
         dedup_hash = hashlib.md5(dedup_key.encode()).hexdigest()
         
-        # Check Redis set
+        # Store hash in item for database and subsequent pipelines
+        item['dedup_hash'] = dedup_hash
+        
+        # 3. Check Redis for duplicates
         spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
         redis_key = f"scraped_jobs:{spider_name}"
         
         try:
             if self.redis_client.sismember(redis_key, dedup_hash):
                 self.stats['duplicates'] += 1
-                logger.debug(f"Duplicate: {item['title']} from {item['company']}")
+                logger.info(f"🚫 Duplicate dropped: {item['title']} ({external_id})")
                 raise DropItem(f"Duplicate item: {dedup_key}")
             
-            # Add to set with TTL
+            # 4. Add to set with TTL (resetting expiry on each addition to keep the set alive)
             self.redis_client.sadd(redis_key, dedup_hash)
             self.redis_client.expire(redis_key, self.ttl_days * 24 * 60 * 60)
+        except DropItem:
+            raise
         except redis.exceptions.ConnectionError:
-            logger.warning("Redis connection failed. Skipping deduplication.")
+            logger.warning("Redis connection failed. Skipping deduplication check.")
         except Exception as e:
             logger.warning(f"Deduplication error: {e}")
         

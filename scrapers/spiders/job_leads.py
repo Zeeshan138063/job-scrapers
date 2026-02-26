@@ -876,11 +876,6 @@ class JobLeadsSpider(scrapy.Spider):
         item_dict['scraped_source'] = "job_leads_spider"
         item_dict['source'] = "jobleads"
         
-        # Calculate dedup_hash early for better pipeline compatibility
-        import hashlib
-        dedup_src = f"jobleads:{item_dict.get('external_id')}"
-        item_dict['dedup_hash'] = hashlib.md5(dedup_src.encode()).hexdigest()
-        
         item_dict['raw_data'] = {
              "listing": item_dict.pop("_raw_listing", {}),
              "details": item_dict.pop("_raw_details", {}),
