@@ -13,17 +13,29 @@ class PostgresPipeline:
     With enhanced logging for debugging.
     """
     
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, pool_size: int = 3, max_overflow: int = 5,
+                 pool_timeout: int = 30, pool_recycle: int = 1800):
         self.database_url = database_url
+        self.pool_size = pool_size
+        self.max_overflow = max_overflow
+        self.pool_timeout = pool_timeout
+        self.pool_recycle = pool_recycle
         self.engine = None
         self.stats = {'inserted': 0, 'updated': 0, 'failed': 0}
         logger.debug(f"PostgresPipeline initialized with URL: {database_url}")
     
     @classmethod
     def from_crawler(cls, crawler):
-        db_url = crawler.settings.get('DATABASE_URL') or os.getenv('DATABASE_URL')
+        s = crawler.settings
+        db_url = s.get('DATABASE_URL') or os.getenv('DATABASE_URL')
         logger.info(f"PostgresPipeline: Loading DATABASE_URL: {'set' if db_url else 'NOT SET'}")
-        pipeline = cls(database_url=db_url)
+        pipeline = cls(
+            database_url=db_url,
+            pool_size=int(s.get('DB_POOL_SIZE') or os.getenv('DB_POOL_SIZE', 3)),
+            max_overflow=int(s.get('DB_POOL_MAX_OVERFLOW') or os.getenv('DB_POOL_MAX_OVERFLOW', 5)),
+            pool_timeout=int(s.get('DB_POOL_TIMEOUT') or os.getenv('DB_POOL_TIMEOUT', 30)),
+            pool_recycle=int(s.get('DB_POOL_RECYCLE') or os.getenv('DB_POOL_RECYCLE', 1800)),
+        )
         pipeline.crawler = crawler
         return pipeline
     
@@ -33,10 +45,13 @@ class PostgresPipeline:
             return
             
         try:
-            # Use connect_args for better timeout handling
             self.engine = create_engine(
                 self.database_url,
-                pool_pre_ping=True
+                pool_size=self.pool_size,
+                max_overflow=self.max_overflow,
+                pool_timeout=self.pool_timeout,
+                pool_recycle=self.pool_recycle,
+                pool_pre_ping=True,
             )
             # Test connection
             with self.engine.connect() as conn:
