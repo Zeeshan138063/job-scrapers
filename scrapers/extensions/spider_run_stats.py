@@ -6,7 +6,7 @@ from typing import Optional
 
 from scrapy import signals
 from sqlmodel import Session, create_engine, select
-from api.models import SpiderRun
+from scrapers.models import SpiderRun
 
 logger = logging.getLogger(__name__)
 

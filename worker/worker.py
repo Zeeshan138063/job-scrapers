@@ -7,7 +7,7 @@ import os
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
 from sqlmodel import Session, create_engine, select
-from api.models import SpiderConfig, SpiderRun, JobListing
+from scrapers.models import SpiderConfig, SpiderRun, JobListing
 # from prometheus_client import start_http_server, CollectorRegistry, multiprocess - REMOVED
 from croniter import croniter
 from datetime import datetime

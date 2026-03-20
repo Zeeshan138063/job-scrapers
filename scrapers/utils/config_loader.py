@@ -2,7 +2,7 @@ import os
 import logging
 from typing import Dict, List, Any
 from sqlmodel import Session, create_engine, select
-from api.models import FilterDefinition, FilterOption
+from scrapers.models import FilterDefinition, FilterOption
 
 logger = logging.getLogger(__name__)
 

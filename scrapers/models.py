@@ -108,11 +108,3 @@ class SpiderRun(SQLModel, table=True):
     items_scraped: int = Field(default=0)
     errors_count: int = Field(default=0)
     metadata_json: Dict = Field(default={}, sa_column=Column(JSON))
-
-class ScrapeRequest(SQLModel):
-    spider_id: str
-    search_queries: List[str]
-    locations: Optional[List[str]] = None
-    max_pages: Optional[int] = 5
-    concurrent_requests: Optional[int] = 2
-    filters: Optional[Dict] = {}

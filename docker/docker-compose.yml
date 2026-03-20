@@ -2,23 +2,6 @@ name: job-scraper
 
 services:
 
-  # 4. Scraper API (FastAPI + SQLModel)
-  scraper-api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.api
-    ports:
-      - "${API_PORT:-8000}:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - API_SECRET_KEY=${API_SECRET_KEY}
-    volumes:
-      - ..:/app
-    networks:
-      - scraper_net
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   # 5. Main scraper worker
   scraper-worker:
@@ -41,19 +24,6 @@ services:
 
   # 7. Grafana dashboard - REMOVED
 
-  # 8. Admin dashboard
-  dashboard:
-    build:
-      context: ../admin-dashboard
-      dockerfile: Dockerfile
-    ports:
-      - "${DASHBOARD_PORT:-8081}:80"
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-      - API_SECRET_KEY=${API_SECRET_KEY}
-    networks:
-      - scraper_net
 
 volumes: {}
 

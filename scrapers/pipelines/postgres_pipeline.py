@@ -1,7 +1,7 @@
 import os
 import logging
 from sqlmodel import Session, create_engine, select
-from api.models import JobListing
+from scrapers.models import JobListing
 import hashlib
 
 logger = logging.getLogger(__name__)

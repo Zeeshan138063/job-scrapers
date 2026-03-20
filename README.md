@@ -8,7 +8,7 @@ A scalable, distributed job board scraping system built with **Scrapy** and **Cr
 - **Rendering Engine**: Crawl4AI (Playwright/Chromium)
 - **Queue & Deduplication**: Redis
 - **Storage**: Supabase (PostgreSQL)
-- **Configuration**: Dynamic DB-driven configs + Admin UI
+- **Configuration**: Dynamic DB-driven configs
 
 ## 🚀 Quick Start
 
@@ -59,18 +59,6 @@ docker-compose exec redis redis-cli LPUSH scraping_queue '{"spider": "linkedin_j
 ```bash
 docker-compose exec redis redis-cli LPUSH scraping_queue '{"spider": "indeed_jobs", "search_queries": ["rust"], "max_pages": 1}'
 ```
-
-## 📊 Dashboards
-
-### Scraper Admin UI
-Manage scraper status, schedules, and concurrency dynamically.
-- Open `admin-dashboard/index.html` in your browser.
-- Enter your Supabase URL & Key.
-
-### Scraper Admin UI
-Manage scraper status, schedules, and concurrency dynamically.
-- Open `admin-dashboard/index.html` in your browser.
-- Enter your Supabase URL & Key.
 
 ### pgAdmin (Database GUI)
 Manage the local PostgreSQL database via a web interface.
