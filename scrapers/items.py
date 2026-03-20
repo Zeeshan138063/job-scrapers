@@ -58,7 +58,6 @@ class JobItem(scrapy.Item):
     
     # Metadata
     scraped_at = scrapy.Field()
-    dedup_hash = scrapy.Field()
     raw_data = scrapy.Field()
     raw_html = scrapy.Field()  # For debugging
     

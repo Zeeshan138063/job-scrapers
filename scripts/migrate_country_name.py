@@ -11,7 +11,7 @@ def migrate():
     with engine.connect() as conn:
         print("Migrating: Adding country_name column...")
         try:
-            conn.execute(text("ALTER TABLE scraper_job_listings ADD COLUMN IF NOT EXISTS country_name TEXT;"))
+            conn.execute(text("ALTER TABLE job_listings ADD COLUMN IF NOT EXISTS country_name TEXT;"))
             conn.commit()
             print("Successfully checked/added country_name column.")
         except Exception as e:

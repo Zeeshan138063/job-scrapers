@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional, List, Dict
-from sqlmodel import SQLModel, Field, Column, JSON
-from sqlalchemy import ARRAY, String
+from sqlmodel import SQLModel, Field, Column, text, DateTime, UniqueConstraint, JSON
+from sqlalchemy.dialects.postgresql import JSONB, TEXT, ARRAY, UUID
+from sqlalchemy import String
 
 class SpiderConfig(SQLModel, table=True):
     __tablename__ = "scraper_spider_configs"
@@ -48,52 +49,58 @@ class FilterOption(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class JobListing(SQLModel, table=True):
-    __tablename__ = "scraper_job_listings"
+    __tablename__ = "job_listings"
     
-    id: Optional[str] = Field(default=None, primary_key=True)
+    id: Optional[str] = Field(
+        default=None, 
+        sa_column=Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    )
     source: str
-    external_id: Optional[str] = None
-    source_domain: Optional[str] = None
+    external_id: str = Field(index=True)
+    source_domain: str = Field(index=True)
+    url: Optional[str] = None
+    source_url: Optional[str] = None
     title: str
     company_name: Optional[str] = None
-    country_name: Optional[str] = None
-    location: Optional[str] = None
-    location_city: Optional[str] = None
-    location_state: Optional[str] = None
-    location_country: Optional[str] = None
+    location_raw: Optional[str] = None
+    city: Optional[str] = None
+    region: Optional[str] = None
+    country_code: Optional[str] = None
+    employment_type: Optional[str] = None
+    remote_modality: Optional[str] = None
     salary_raw: Optional[str] = None
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     salary_currency: Optional[str] = None
     salary_period: Optional[str] = None
-    description: Optional[str] = None
     description_short: Optional[str] = None
     description_html: Optional[str] = None
     description_text: Optional[str] = None
-    url: str
-    source_url: Optional[str] = None
-    posted_at: Optional[datetime] = None
-    employment_type: Optional[str] = None
-    remote_modality: Optional[str] = None
-    experience_level: Optional[str] = None
-    scraped_at: datetime = Field(default_factory=datetime.utcnow)
-    dedup_hash: str = Field(unique=True, index=True)
     
-    # Structured Data (JSON)
-    benefits: Dict = Field(default={}, sa_column=Column(JSON))
-    qualifications: Dict = Field(default={}, sa_column=Column(JSON))
-    responsibilities: Dict = Field(default={}, sa_column=Column(JSON))
-    education: Dict = Field(default={}, sa_column=Column(JSON))
-    tools: Dict = Field(default={}, sa_column=Column(JSON))
-    meta_flags: Dict = Field(default={}, sa_column=Column(JSON))
+    # Structured Data (JSONB)
+    benefits: Dict = Field(default={}, sa_column=Column(JSONB))
+    skills: Dict = Field(default={}, sa_column=Column(JSONB))
+    qualifications: Dict = Field(default={}, sa_column=Column(JSONB))
+    responsibilities: Dict = Field(default={}, sa_column=Column(JSONB))
+    education: Dict = Field(default={}, sa_column=Column(JSONB))
+    tools: Dict = Field(default={}, sa_column=Column(JSONB))
+    meta_flags: Dict = Field(default={}, sa_column=Column(JSONB, server_default=text("'{}'::jsonb")))
     
-    skills: List[str] = Field(default=[], sa_column=Column(ARRAY(String)))
+    scraped_source: Optional[str] = None
     hostname_origin: Optional[str] = None
-    is_active: bool = Field(default=True)
+    raw_data: Dict = Field(default={}, sa_column=Column(JSONB))
     
-    # Staging meta
-    is_exported: bool = Field(default=False)
-    exported_at: Optional[datetime] = None
+    posted_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    last_scraped_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=text("now()")))
+    created_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=text("now()")))
+    updated_at: datetime = Field(sa_column=Column(DateTime(timezone=True), server_default=text("now()")))
+    country_name: Optional[str] = None
+    
+    # Unique constraint (not the primary key, but identifying)
+    __table_args__ = (
+        UniqueConstraint("external_id", "source_domain", name="job_listings_external_id_source_domain_key1"),
+    )
 
 class SpiderRun(SQLModel, table=True):
     __tablename__ = "scraper_runs"

@@ -1,6 +1,5 @@
 from scrapy.exceptions import DropItem
 import redis
-import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
@@ -43,38 +42,28 @@ class DeduplicationPipeline:
         if self.redis_client:
             self.redis_client.close()
     
-    def process_item(self, item, spider):
-        """Check if item already exists using a composite key"""
+        # 1. Use composite key (source_domain + external_id)
+        external_id = item.get('external_id')
+        source_domain = item.get('source_domain')
         
-        # 1. Collect components for the composite key
-        external_id = str(item.get('external_id', ''))
-        title = str(item.get('title', '')).lower().strip()
-        
-        # Location components (depending on item fields)
-        region = str(item.get('region') or item.get('location_parsed', {}).get('state', '')).lower().strip()
-        country = str(item.get('country_name') or item.get('location_country') or item.get('country_code', '')).lower().strip()
-        
-        # 2. Create unique hash based on composite key
-        # Format: source:id:title:region:country
-        dedup_key = f"{item['source']}:{external_id}:{title}:{region}:{country}"
-        dedup_hash = hashlib.md5(dedup_key.encode()).hexdigest()
-        
-        # Store hash in item for database and subsequent pipelines
-        item['dedup_hash'] = dedup_hash
+        if not external_id or not source_domain:
+            logger.warning(f"Item missing external_id or source_domain: {item.get('title')}")
+            return item
+            
+        dedup_key = f"job:{source_domain}:{external_id}"
         
         # 3. Check Redis for duplicates
-        spider_name = self.crawler.spider.name if self.crawler and self.crawler.spider else "unknown"
-        redis_key = f"scraped_jobs:{spider_name}"
-        
         try:
-            if self.redis_client.sismember(redis_key, dedup_hash):
+            # Check if exists in Redis
+            if self.redis_client.sismember(self.redis_key, dedup_key):
                 self.stats['duplicates'] += 1
                 logger.info(f"🚫 Duplicate dropped: {item['title']} ({external_id})")
-                raise DropItem(f"Duplicate item: {dedup_key}")
+                raise DropItem(f"Duplicate item found: {dedup_key}")
             
+            # Add to set
+            self.redis_client.sadd(self.redis_key, dedup_key)
             # 4. Add to set with TTL (resetting expiry on each addition to keep the set alive)
-            self.redis_client.sadd(redis_key, dedup_hash)
-            self.redis_client.expire(redis_key, self.ttl_days * 24 * 60 * 60)
+            self.redis_client.expire(self.redis_key, self.ttl_days * 24 * 60 * 60)
         except DropItem:
             raise
         except redis.exceptions.ConnectionError:
@@ -82,8 +71,6 @@ class DeduplicationPipeline:
         except Exception as e:
             logger.warning(f"Deduplication error: {e}")
         
-        # Store hash in item for database
-        item['dedup_hash'] = dedup_hash
         
         self.stats['new'] += 1
         return item

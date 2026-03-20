@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 class SupabasePipeline:
     """
     Pipeline to save scraped items to a Supabase table for testing/verification.
+    Using (external_id, source_domain) for conflict resolution.
     """
     
     def __init__(self, supabase_url: str, supabase_key: str):
@@ -19,7 +20,7 @@ class SupabasePipeline:
         self.supabase_key = supabase_key
         self.client: Optional[Client] = None
         self.stats = {'upserted': 0, 'failed': 0}
-        
+    
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
@@ -39,14 +40,16 @@ class SupabasePipeline:
         if not self.client:
             return item
             
+        external_id = item.get('external_id')
+        source_domain = item.get('source_domain')
+        
+        if not external_id or not source_domain:
+            return item
+            
         company = item.get("company_name") or item.get("company")
         logger.info(f"SupabasePipeline processing: {item.get('title')} at {company}")
         
         # Prepare payload for Supabase
-        # Map fields to match the job_listings table schema in Supabase
-        
-        # Priority 1: Use raw_data if already populated by the spider/previous pipelines
-        # Priority 2: Fallback to building it from individual raw fields
         raw_data = item.get("raw_data")
         if not raw_data:
             raw_data = {
@@ -56,15 +59,15 @@ class SupabasePipeline:
             }
 
         payload = {
-            "external_id": item.get("external_id"),
-            "source_domain": item.get("source_domain", "jobleads.com"),
+            "external_id": external_id,
+            "source_domain": source_domain,
             "url": item.get("url"),
             "source_url": item.get("source_url"),
             "title": item.get("title"),
             "company_name": company,
             "location_raw": item.get("location"),
-            "city": item.get("location_parsed", {}).get("city"),
-            "region": item.get("region") or item.get("location_parsed", {}).get("state"),
+            "city": item.get("city"),
+            "region": item.get("region"),
             "country_code": item.get("country_code"),
             "country_name": item.get("country_name"),
             "employment_type": item.get("employment_type"),
@@ -93,14 +96,8 @@ class SupabasePipeline:
         }
 
         try:
-            # Upsert into job_listings table
-            # Assuming external_id and source_domain form a unique constraint
-            logger.debug(f"Upserting payload to Supabase: {payload.get('external_id')} (Country: {payload.get('country_name')})")
-            
-            # Some schemas might use scraper_job_listings, others job_listings
-            # Based on logs, job_listings is currently active
             table_name = "job_listings"
-            
+            # Use composite unique constraint for conflict resolution
             response = self.client.table(table_name).upsert(
                 payload, 
                 on_conflict="external_id, source_domain"
@@ -109,14 +106,7 @@ class SupabasePipeline:
             self.stats['upserted'] += 1
             logger.info(f"✅ Supabase upserted: {item.get('title')} from {company}")
         except Exception as e:
-            logger.error(f"SupabasePipeline error for {item.get('external_id')}: {str(e)}")
-            # Log more details if it's a Postgrest error
-            if hasattr(e, 'message'):
-                logger.error(f"Postgrest message: {e.message}")
-            if hasattr(e, 'details'):
-                logger.error(f"Postgrest details: {e.details}")
-            if hasattr(e, 'hint'):
-                logger.error(f"Postgrest hint: {e.hint}")
+            logger.error(f"SupabasePipeline error for {external_id}: {str(e)}")
             self.stats['failed'] += 1
             
         return item

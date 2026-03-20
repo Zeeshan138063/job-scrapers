@@ -1,129 +1,139 @@
 import os
 import logging
-from sqlmodel import Session, create_engine, select
+from datetime import datetime, timezone
+from sqlmodel import Session, create_engine, select, and_
 from scrapers.models import JobListing
-import hashlib
 
 logger = logging.getLogger(__name__)
 
 class PostgresPipeline:
     """
-    Pipeline to save scraped items to the dedicated PostgreSQL staging database.
+    Pipeline to save scraped items to the dedicated PostgreSQL database.
+    Acts as a pure storage sink, using (external_id, source_domain) for upsert.
+    With enhanced logging for debugging.
     """
     
     def __init__(self, database_url: str):
         self.database_url = database_url
         self.engine = None
         self.stats = {'inserted': 0, 'updated': 0, 'failed': 0}
+        logger.debug(f"PostgresPipeline initialized with URL: {database_url}")
     
     @classmethod
     def from_crawler(cls, crawler):
-        pipeline = cls(
-            database_url=crawler.settings.get('DATABASE_URL') or os.getenv('DATABASE_URL')
-        )
+        db_url = crawler.settings.get('DATABASE_URL') or os.getenv('DATABASE_URL')
+        logger.info(f"PostgresPipeline: Loading DATABASE_URL: {'set' if db_url else 'NOT SET'}")
+        pipeline = cls(database_url=db_url)
         pipeline.crawler = crawler
         return pipeline
     
     def open_spider(self, spider=None):
         if not self.database_url:
-            logger.error("DATABASE_URL not set. PostgresPipeline disabled.")
+            logger.error("❌ PostgresPipeline: DATABASE_URL not set. Pipeline disabled.")
             return
             
         try:
-            self.engine = create_engine(self.database_url)
-            logger.info("PostgresPipeline connected to staging database")
+            # Use connect_args for better timeout handling
+            self.engine = create_engine(
+                self.database_url,
+                pool_pre_ping=True
+            )
+            # Test connection
+            with self.engine.connect() as conn:
+                logger.info("✅ PostgresPipeline successfully connected and verified database connection.")
         except Exception as e:
-            logger.error(f"Failed to connect to Postgres: {e}")
+            logger.error(f"❌ PostgresPipeline: Failed to connect to Postgres: {e}")
             self.engine = None
             
     def process_item(self, item, spider=None):
         if not self.engine:
+            logger.warning("⚠️ PostgresPipeline skipping item: No database engine.")
             return item
             
+        external_id = item.get('external_id')
+        source_domain = item.get('source_domain')
+        
+        if not external_id or not source_domain:
+            logger.warning(f"⚠️ PostgresPipeline: Item missing external_id ({external_id}) or source_domain ({source_domain}). Skipping.")
+            return item
+            
+        logger.info(f"💾 PostgresPipeline processing: {item.get('title')} ({external_id})")
+        
         try:
+            # 1. Filter item fields to match JobListing model
+            listing_data = self._filter_listing_data(item)
+            logger.debug(f"Filtered listing data keys: {list(listing_data.keys())}")
+            
             with Session(self.engine) as session:
-                # Calculate dedup_hash if not provided
-                if not item.get('dedup_hash'):
-                    unique_str = f"{item['source']}:{item.get('external_id') or item['url']}"
-                    item['dedup_hash'] = hashlib.md5(unique_str.encode()).hexdigest()
-                
-                # Check for existing
-                statement = select(JobListing).where(JobListing.dedup_hash == item['dedup_hash'])
+                # 2. Check for existing record by (external_id, source_domain)
+                statement = select(JobListing).where(
+                    and_(
+                        JobListing.external_id == external_id,
+                        JobListing.source_domain == source_domain
+                    )
+                )
                 existing = session.exec(statement).first()
                 
                 if existing:
-                    # Update fields
-                    existing.title = item['title']
-                    existing.company_name = item.get('company_name') or item.get('company')
-                    existing.country_name = item.get('country_name')
-                    existing.location = item.get('location')
-                    existing.salary_raw = item.get('salary') or item.get('salary_raw')
-                    existing.salary_min = item.get('salary_min')
-                    existing.salary_max = item.get('salary_max')
-                    existing.salary_currency = item.get('salary_currency')
-                    existing.salary_period = item.get('salary_period')
-                    existing.description = item.get('description')
-                    existing.description_short = item.get('description_short')
-                    existing.description_html = item.get('description_html')
-                    existing.description_text = item.get('description_text')
-                    existing.employment_type = item.get('employment_type')
-                    existing.remote_modality = item.get('remote_modality')
-                    existing.source_url = item.get('source_url')
-                    existing.benefits = item.get('benefits', {})
-                    existing.qualifications = item.get('qualifications', {})
-                    existing.responsibilities = item.get('responsibilities', {})
-                    existing.education = item.get('education', {})
-                    existing.tools = item.get('tools', {})
-                    existing.meta_flags = item.get('meta_flags', {})
-                    existing.hostname_origin = item.get('hostname_origin')
-                    existing.scraped_at = item.get('scraped_at')
+                    logger.debug(f"Updating existing record: {existing.id}")
+                    # Update dynamic fields
+                    for key, value in listing_data.items():
+                        if key != 'id': # Don't update PK
+                            setattr(existing, key, value)
+                    existing.updated_at = datetime.now(timezone.utc)
                     session.add(existing)
                     self.stats['updated'] += 1
                 else:
-                    # Create new
-                    job = JobListing(
-                        source=item['source'],
-                        external_id=item.get('external_id'),
-                        source_domain=item.get('source_domain'),
-                        title=item['title'],
-                        company_name=item.get('company_name') or item.get('company'),
-                        country_name=item.get('country_name'),
-                        location=item.get('location'),
-                        location_city=item.get('location_parsed', {}).get('city'),
-                        location_state=item.get('location_parsed', {}).get('state'),
-                        location_country=item.get('location_parsed', {}).get('country'),
-                        salary_raw=item.get('salary') or item.get('salary_raw'),
-                        salary_min=item.get('salary_min'),
-                        salary_max=item.get('salary_max'),
-                        salary_currency=item.get('salary_currency'),
-                        salary_period=item.get('salary_period'),
-                        url=item['url'],
-                        source_url=item.get('source_url'),
-                        employment_type=item.get('employment_type'),
-                        remote_modality=item.get('remote_modality'),
-                        description=item.get('description'),
-                        description_short=item.get('description_short'),
-                        description_html=item.get('description_html'),
-                        description_text=item.get('description_text'),
-                        benefits=item.get('benefits', {}),
-                        qualifications=item.get('qualifications', {}),
-                        responsibilities=item.get('responsibilities', {}),
-                        education=item.get('education', {}),
-                        tools=item.get('tools', {}),
-                        meta_flags=item.get('meta_flags', {}),
-                        hostname_origin=item.get('hostname_origin'),
-                        dedup_hash=item['dedup_hash'],
-                        scraped_at=item.get('scraped_at'),
-                    )
+                    logger.debug("Creating new record")
+                    # Create new record
+                    job = JobListing(**listing_data)
                     session.add(job)
                     self.stats['inserted'] += 1
                 
                 session.commit()
+                logger.debug("Transaction committed successfully")
         except Exception as e:
-            logger.error(f"PostgresPipeline error: {e}")
+            logger.error(f"❌ PostgresPipeline error during storage: {e}")
             self.stats['failed'] += 1
             
         return item
     
+    def _filter_listing_data(self, item: dict) -> dict:
+        """
+        Filters the item dictionary to only include keys that are valid fields
+        in the JobListing model.
+        """
+        # Handle Pydantic v1 and v2 field identification
+        if hasattr(JobListing, 'model_fields'):
+            valid_fields = JobListing.model_fields.keys()
+        elif hasattr(JobListing, '__fields__'):
+            valid_fields = JobListing.__fields__.keys()
+        else:
+            valid_fields = list(item.keys())
+        
+        filtered = {}
+        # Basic mapping for fields that might have different names in items
+        mapping = {
+            'company': 'company_name',
+            'location': 'location_raw',
+            'country_name': 'country_name',
+            'source': 'source',
+            'scraped_at': 'last_scraped_at'
+        }
+        
+        for key in item:
+            target_key = mapping.get(key, key)
+            if target_key in valid_fields and target_key != 'id':
+                filtered[target_key] = item[key]
+                
+        # Specialized handling for location_parsed if present
+        if 'location_parsed' in item:
+            lp = item['location_parsed']
+            if 'city' in valid_fields and not filtered.get('city'): filtered['city'] = lp.get('city')
+            if 'region' in valid_fields and not filtered.get('region'): filtered['region'] = lp.get('state') or lp.get('region')
+            if 'country_code' in valid_fields and not filtered.get('country_code'): filtered['country_code'] = lp.get('country')
+
+        return filtered
+
     def close_spider(self, spider=None):
-        logger.info(f"Postgres stats: {self.stats}")
+        logger.info(f"📊 Postgres Final Stats: {self.stats}")

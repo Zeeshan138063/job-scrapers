@@ -50,8 +50,8 @@ ITEM_PIPELINES = {
     'scrapers.pipelines.validation_pipeline.ValidationPipeline': 100,
     'scrapers.pipelines.deduplication_pipeline.DeduplicationPipeline': 200,
     'scrapers.pipelines.enrichment_pipeline.EnrichmentPipeline': 300,
-    # 'scrapers.pipelines.postgres_pipeline.PostgresPipeline': 400,
-    'scrapers.pipelines.supabase_pipeline.SupabasePipeline': 500,
+    'scrapers.pipelines.postgres_pipeline.PostgresPipeline': 400,
+    # 'scrapers.pipelines.supabase_pipeline.SupabasePipeline': 500,
 }
 
 # Supabase Settings
