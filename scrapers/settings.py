@@ -20,6 +20,7 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 4
 # Configure download delay
 DOWNLOAD_DELAY = 2
 RANDOMIZE_DOWNLOAD_DELAY = True
+DOWNLOAD_TIMEOUT = 60
 
 # Disable cookies (enabled by default)
 COOKIES_ENABLED = True
@@ -73,7 +74,7 @@ STATS_CLASS = 'scrapy.statscollectors.MemoryStatsCollector'
 
 # Retry settings
 RETRY_ENABLED = True
-RETRY_TIMES = 3
+RETRY_TIMES = 10
 RETRY_HTTP_CODES = [500, 502, 503, 504, 522, 524, 408, 429]
 
 # Logging
@@ -106,3 +107,6 @@ SCRAPEOPS_FAKE_USER_AGENT_ENABLED = True
 SCRAPEOPS_CACHE_ENABLED = True
 SCRAPEOPS_CACHE_PATH = os.path.join(os.path.dirname(__file__), 'data', 'scrapeops_ua_cache.json')
 SCRAPEOPS_CACHE_EXPIRY = 86400  # 24 hours
+
+# Job Persistence (Resumable Scraping)
+JOBDIR = 'crawls/job_leads_main'

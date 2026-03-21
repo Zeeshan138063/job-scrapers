@@ -2,6 +2,8 @@ import os
 import logging
 from datetime import datetime, timezone
 from sqlmodel import Session, create_engine, select, and_
+from sqlalchemy.exc import OperationalError, DBAPIError
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from scrapers.models import JobListing
 
 logger = logging.getLogger(__name__)
@@ -65,53 +67,61 @@ class PostgresPipeline:
             logger.warning("⚠️ PostgresPipeline skipping item: No database engine.")
             return item
             
+        try:
+            self._save_item(item)
+        except Exception as e:
+            logger.error(f"❌ PostgresPipeline: Permanent failure saving item after retries: {e}")
+            self.stats['failed'] += 1
+            
+        return item
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type((OperationalError, DBAPIError)),
+        reraise=True
+    )
+    def _save_item(self, item):
         external_id = item.get('external_id')
         source_domain = item.get('source_domain')
         
         if not external_id or not source_domain:
             logger.warning(f"⚠️ PostgresPipeline: Item missing external_id ({external_id}) or source_domain ({source_domain}). Skipping.")
-            return item
+            return
             
         logger.info(f"💾 PostgresPipeline processing: {item.get('title')} ({external_id})")
         
-        try:
-            # 1. Filter item fields to match JobListing model
-            listing_data = self._filter_listing_data(item)
-            logger.debug(f"Filtered listing data keys: {list(listing_data.keys())}")
-            
-            with Session(self.engine) as session:
-                # 2. Check for existing record by (external_id, source_domain)
-                statement = select(JobListing).where(
-                    and_(
-                        JobListing.external_id == external_id,
-                        JobListing.source_domain == source_domain
-                    )
+        # 1. Filter item fields to match JobListing model
+        listing_data = self._filter_listing_data(item)
+        
+        with Session(self.engine) as session:
+            # 2. Check for existing record by (external_id, source_domain)
+            statement = select(JobListing).where(
+                and_(
+                    JobListing.external_id == external_id,
+                    JobListing.source_domain == source_domain
                 )
-                existing = session.exec(statement).first()
-                
-                if existing:
-                    logger.debug(f"Updating existing record: {existing.id}")
-                    # Update dynamic fields
-                    for key, value in listing_data.items():
-                        if key != 'id': # Don't update PK
-                            setattr(existing, key, value)
-                    existing.updated_at = datetime.now(timezone.utc)
-                    session.add(existing)
-                    self.stats['updated'] += 1
-                else:
-                    logger.debug("Creating new record")
-                    # Create new record
-                    job = JobListing(**listing_data)
-                    session.add(job)
-                    self.stats['inserted'] += 1
-                
-                session.commit()
-                logger.debug("Transaction committed successfully")
-        except Exception as e:
-            logger.error(f"❌ PostgresPipeline error during storage: {e}")
-            self.stats['failed'] += 1
+            )
+            existing = session.exec(statement).first()
             
-        return item
+            if existing:
+                logger.debug(f"Updating existing record: {existing.id}")
+                # Update dynamic fields
+                for key, value in listing_data.items():
+                    if key != 'id': # Don't update PK
+                        setattr(existing, key, value)
+                existing.updated_at = datetime.now(timezone.utc)
+                session.add(existing)
+                self.stats['updated'] += 1
+            else:
+                logger.debug("Creating new record")
+                # Create new record
+                job = JobListing(**listing_data)
+                session.add(job)
+                self.stats['inserted'] += 1
+            
+            session.commit()
+            logger.debug("Transaction committed successfully")
     
     def _filter_listing_data(self, item: dict) -> dict:
         """
