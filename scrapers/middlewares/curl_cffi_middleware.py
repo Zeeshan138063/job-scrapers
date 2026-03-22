@@ -1,9 +1,8 @@
 import logging
-import asyncio
+
 from curl_cffi.requests import AsyncSession
 from scrapy import signals
-from scrapy.http import HtmlResponse, Response
-from scrapy.utils.python import to_bytes
+from scrapy.http import HtmlResponse
 
 logger = logging.getLogger(__name__)
 
@@ -11,12 +10,14 @@ class CurlCFFIDownloaderMiddleware:
     """
     Downloader middleware that uses curl_cffi for requests to impersonate browsers.
     Enabled by setting request.meta['use_curl_cffi'] = True.
+    
+    Supports session isolation via request.meta['curl_cffi_session_id'].
     """
 
     def __init__(self, crawler, impersonate="chrome124"):
         self.crawler = crawler
         self.impersonate = impersonate
-        self.sessions = {}  # spider_name -> AsyncSession
+        self.sessions = {}  # session_id -> AsyncSession
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -25,39 +26,45 @@ class CurlCFFIDownloaderMiddleware:
         crawler.signals.connect(mw.spider_closed, signal=signals.spider_closed)
         return mw
 
-    def _get_spider_name(self):
-        return self.crawler.spider.name if self.crawler.spider else "default"
+    async def _get_session(self, session_id: str):
+        if session_id not in self.sessions:
+            logger.debug(f"Creating NEW curl_cffi session for ID: {session_id}")
+            self.sessions[session_id] = AsyncSession(impersonate=self.impersonate)
+        return self.sessions[session_id]
 
-    async def _get_session(self):
-        spider_name = self._get_spider_name()
-        if spider_name not in self.sessions:
-            self.sessions[spider_name] = AsyncSession(impersonate=self.impersonate)
-        return self.sessions[spider_name]
-
-    async def spider_closed(self):
-        spider_name = self._get_spider_name()
-        session = self.sessions.pop(spider_name, None)
-        if session:
+    async def spider_closed(self, spider):
+        # Close all sessions for this spider's name prefix if possible, 
+        # but usually we just close everything if the whole spider is closing.
+        for sid, session in list(self.sessions.items()):
             await session.close()
-            logger.debug(f"Closed curl_cffi session for {spider_name}")
+            logger.debug(f"Closed curl_cffi session: {sid}")
+        self.sessions.clear()
 
-    async def process_request(self, request):
+    async def process_request(self, request, spider):
         if not request.meta.get("use_curl_cffi"):
             return None
 
-        logger.debug(f"Using curl_cffi for {request.url}")
-        session = await self._get_session()
+        # Use explicitly provided session_id or fallback to spider name (shared)
+        session_id = request.meta.get("curl_cffi_session_id", spider.name)
+
+        logger.debug(f"Using curl_cffi ({session_id}) for {request.url}")
+        session = await self._get_session(session_id)
 
         method = request.method.upper()
         url = request.url
+
+        # Merge Scrapy headers (decode from bytes)
         headers = {k.decode('utf-8'): v[0].decode('utf-8') for k, v in request.headers.items()}
         
         # Scrapy body is usually bytes
         data = request.body if method in ["POST", "PUT", "PATCH"] else None
-        
-        # Handle JSON if specified in Scrapy request (common in our case)
+
+        # Handle JSON if specified in Scrapy request
         if request.meta.get("curl_cffi_json"):
             data = request.meta["curl_cffi_json"]
+
+        # Handle initial cookies for a new session
+        cookies = request.meta.get("curl_cffi_cookies")
 
         try:
             resp = await session.request(
@@ -65,13 +72,13 @@ class CurlCFFIDownloaderMiddleware:
                 url=url,
                 headers=headers,
                 data=data,
+                cookies=cookies,
                 timeout=request.meta.get("download_timeout", 30),
                 allow_redirects=request.meta.get("allow_redirects", True),
                 proxy=request.meta.get("proxy"),
             )
 
             # Prepare headers for Scrapy response.
-            # We must handle multiple 'Set-Cookie' headers correctly.
             scrapy_headers = {}
             for k, v in resp.headers.multi_items():
                 if k.lower() in ['content-encoding', 'content-length']:
@@ -90,11 +97,8 @@ class CurlCFFIDownloaderMiddleware:
                 request=request,
             )
             
-            # Sync cookies back to the spider if needed
-            # (Though AsyncSession handles them internally if reused)
-            
             return response
 
         except Exception as e:
             logger.error(f"curl_cffi error for {url}: {e}")
-            return None # Fallback to standard downloader or let Scrapy handle error
+            return None  # Fallback to standard downloader

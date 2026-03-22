@@ -1,8 +1,10 @@
-import os
 import logging
+import os
 from typing import Dict, List, Any
+
 from sqlmodel import Session, create_engine, select
-from scrapers.models import FilterDefinition, FilterOption
+
+from scrapers.models import FilterDefinition, FilterOption, SpiderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -66,3 +68,29 @@ class ConfigLoader:
         except Exception as e:
             logger.error(f"Error loading config for {spider_id}: {e}")
             return {}
+
+    def get_search_queries(self, spider_id: str) -> List[str]:
+        """Fetch search queries for a spider from scraper_spider_configs."""
+        if not self.engine:
+            return []
+        try:
+            with Session(self.engine) as session:
+                stmt = select(SpiderConfig).where(SpiderConfig.spider_id == spider_id)
+                config = session.exec(stmt).first()
+                return config.search_queries if config and config.search_queries else []
+        except Exception as e:
+            logger.error(f"Error fetching search queries for {spider_id}: {e}")
+            return []
+
+    def get_locations(self, spider_id: str) -> List[str]:
+        """Fetch locations for a spider from scraper_spider_configs."""
+        if not self.engine:
+            return []
+        try:
+            with Session(self.engine) as session:
+                stmt = select(SpiderConfig).where(SpiderConfig.spider_id == spider_id)
+                config = session.exec(stmt).first()
+                return config.locations if config and config.locations else []
+        except Exception as e:
+            logger.error(f"Error fetching locations for {spider_id}: {e}")
+            return []

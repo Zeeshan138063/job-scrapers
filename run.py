@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import os
 import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -107,16 +108,16 @@ def main():
     run_parser.add_argument(
         "--queries", "-q",
         nargs="+",
-        default=["python"],
+        default=None,
         metavar="QUERY",
-        help="Search keywords (default: python)",
+        help="Search keywords (default: None, uses spider defaults)",
     )
     run_parser.add_argument(
         "--locations", "-l",
         nargs="+",
-        default=["NLD"],
+        default=None,
         metavar="LOC",
-        help="Locations or country codes (default: NLD)",
+        help="Locations or country codes (default: None, uses spider defaults)",
     )
     run_parser.add_argument(
         "--output", "-o",

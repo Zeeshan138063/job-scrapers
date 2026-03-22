@@ -1,5 +1,6 @@
-from scrapy.exceptions import DropItem
 import logging
+
+from scrapy.exceptions import DropItem
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,9 @@ class ValidationPipeline:
             missing.append('company/company_name')
         
         if missing:
-            raise DropItem(f"Missing required fields: {missing} in {item.get('url', 'unknown')}")
+            msg = f"🚫 [VALIDATION] Missing required fields: {missing} in {item.get('title', 'unknown')}"
+            logger.info(msg)
+            raise DropItem(msg)
         
         # Clean whitespace from string fields
         for field in item:
@@ -32,7 +35,9 @@ class ValidationPipeline:
         
         # Validate URL format
         if not item['url'].startswith('http'):
-            raise DropItem(f"Invalid URL format: {item['url']}")
+            msg = f"🚫 [VALIDATION] Invalid URL format for {item.get('title')}: {item['url']}"
+            logger.info(msg)
+            raise DropItem(msg)
         
         # Ensure external_id exists (fallback to hash of URL)
         if not item.get('external_id'):

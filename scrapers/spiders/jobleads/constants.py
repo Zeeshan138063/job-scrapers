@@ -147,6 +147,7 @@ for category, subcats in job_categories.items():
             "id": subcat["id"],
             "name": subcat["name"]
         })
+
 countries_dict = {
     "Argentina": "ARG",
     "Australia": "AUS",
@@ -191,12 +192,3 @@ countries_dict = {
     "United States": "USA",
     "Venezuela": "VEN"
 }
-# if __name__ == "__main__":
-#     print(f"Total Categories: {len(job_categories)}")
-#     print(f"Total Subcategories: {sum(len(v) for v in job_categories.values())}")
-#
-#     # Example usage
-#     print("\nExample - IT & Technology subcategories:")
-#     for subcat in job_categories["IT & Technology"]:
-#         print(f"  - {subcat['name']} (ID: {subcat['id']})")
-

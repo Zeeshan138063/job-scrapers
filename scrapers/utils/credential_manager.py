@@ -100,3 +100,7 @@ class CredentialManager:
                 configs.append(conf)
                 
         return configs
+
+    def get_available_credentials(self, country_arg: Optional[str] = None):
+        """Alias for get_configs_for_startup to maintain compatibility with updated spider logic."""
+        return self.get_configs_for_startup(country_arg)
